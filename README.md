@@ -1,6 +1,6 @@
-# freeagent-mcp
+# freeagent-mcp-server
 
-[![npm version](https://img.shields.io/npm/v/freeagent-mcp.svg)](https://www.npmjs.com/package/freeagent-mcp)
+[![npm version](https://img.shields.io/npm/v/freeagent-mcp-server.svg)](https://www.npmjs.com/package/freeagent-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provides 76 tools covering invoices, expenses, contacts, projects, timeslips, banking, bills, estimates, credit notes, accounting reports, and more.
