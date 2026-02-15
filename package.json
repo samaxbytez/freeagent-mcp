@@ -1,5 +1,5 @@
 {
-  "name": "freeagent-mcp",
+  "name": "@samaxbytez/freeagent-mcp",
   "version": "1.0.0",
   "description": "MCP server for the FreeAgent API",
   "type": "module",
