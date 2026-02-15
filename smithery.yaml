@@ -1,0 +1,24 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - freeagentAccessToken
+    properties:
+      freeagentAccessToken:
+        type: string
+        description: Your FreeAgent OAuth2 access token
+      freeagentBaseUrl:
+        type: string
+        description: API base URL (defaults to sandbox)
+  commandFunction: |
+    (config) => ({
+      command: 'npx',
+      args: ['-y', 'freeagent-mcp'],
+      env: {
+        FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken,
+        ...(config.freeagentBaseUrl ? { FREEAGENT_BASE_URL: config.freeagentBaseUrl } : {})
+      }
+    })
+  exampleConfig:
+    freeagentAccessToken: "your_access_token_here"
