@@ -7,6 +7,7 @@ MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provi
 
 ## Features
 
+- **OAuth2 Authentication** - Built-in browser-based auth flow with automatic token refresh
 - **Company** - Company info, business categories, tax timeline
 - **Users** - List, get, create, update, and delete users
 - **Contacts** - Full CRUD for clients and suppliers
@@ -24,14 +25,35 @@ MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provi
 
 ## Prerequisites
 
-You need a FreeAgent account and OAuth2 access token. To get one:
-
 1. Sign up for a [FreeAgent Developer](https://dev.freeagent.com/) account
 2. Create a sandbox account for testing
-3. Register an application to get OAuth credentials
-4. Complete the OAuth2 authorization flow to obtain an access token
+3. Register an application in the Developer Dashboard
+4. Set the **OAuth redirect URI** to `http://localhost:3456/callback`
+5. Note your **Client ID** and **Client Secret**
 
 See the [FreeAgent API Quick Start](https://dev.freeagent.com/docs/quick_start) for detailed instructions.
+
+## Getting Started
+
+### 1. Set environment variables
+
+```bash
+export FREEAGENT_CLIENT_ID="your_client_id"
+export FREEAGENT_CLIENT_SECRET="your_client_secret"
+# export FREEAGENT_SANDBOX=false  # uncomment for production accounts
+```
+
+### 2. Authenticate (one-time)
+
+```bash
+npx freeagent-mcp-server auth
+```
+
+This opens your browser to authorize the app. After approval, tokens are saved to `~/.freeagent-mcp/tokens.json` and automatically refreshed when they expire.
+
+### 3. Configure your MCP client
+
+See the [Configuration](#configuration) section below.
 
 ## Installation
 
@@ -64,13 +86,13 @@ npm start
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `FREEAGENT_ACCESS_TOKEN` | Yes | Your FreeAgent OAuth2 access token |
-| `FREEAGENT_BASE_URL` | No | API base URL (defaults to `https://api.sandbox.freeagent.com/v2`) |
+| `FREEAGENT_CLIENT_ID` | Yes* | OAuth2 client ID from Developer Dashboard |
+| `FREEAGENT_CLIENT_SECRET` | Yes* | OAuth2 client secret from Developer Dashboard |
+| `FREEAGENT_SANDBOX` | No | Set to `false` for production (defaults to `true`) |
+| `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
+| `FREEAGENT_BASE_URL` | No | Override API base URL |
 
-For production, set:
-```
-FREEAGENT_BASE_URL=https://api.freeagent.com/v2
-```
+*Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
 
 ### Claude Desktop
 
@@ -83,7 +105,8 @@ Add to your `claude_desktop_config.json`:
       "command": "npx",
       "args": ["-y", "freeagent-mcp-server"],
       "env": {
-        "FREEAGENT_ACCESS_TOKEN": "your_access_token_here"
+        "FREEAGENT_CLIENT_ID": "your_client_id",
+        "FREEAGENT_CLIENT_SECRET": "your_client_secret"
       }
     }
   }
@@ -101,7 +124,8 @@ Add to your `.mcp.json`:
       "command": "npx",
       "args": ["-y", "freeagent-mcp-server"],
       "env": {
-        "FREEAGENT_ACCESS_TOKEN": "your_access_token_here"
+        "FREEAGENT_CLIENT_ID": "your_client_id",
+        "FREEAGENT_CLIENT_SECRET": "your_client_secret"
       }
     }
   }
@@ -114,8 +138,10 @@ Add to your `.mcp.json`:
 freeagent-mcp/
 ├── src/
 │   ├── index.ts              # Entry point, server setup
+│   ├── auth.ts               # OAuth2 flow, token storage & refresh
 │   ├── client.ts             # FreeAgent API HTTP client
 │   ├── utils.ts              # Shared utilities (responses, logging)
+│   ├── auth.test.ts          # Auth module tests
 │   ├── client.test.ts        # Client tests
 │   ├── utils.test.ts         # Utils tests
 │   └── tools/
@@ -336,17 +362,23 @@ npm run format
 
 ## Troubleshooting
 
-**"Missing required environment variable: FREEAGENT_ACCESS_TOKEN"**
-Set the `FREEAGENT_ACCESS_TOKEN` environment variable with a valid OAuth2 access token.
+**"Missing credentials" error on startup**
+Set `FREEAGENT_CLIENT_ID` and `FREEAGENT_CLIENT_SECRET` environment variables, then run `npx freeagent-mcp-server auth` to authenticate.
+
+**"No stored tokens found"**
+You need to complete the one-time auth flow first: `npx freeagent-mcp-server auth`
+
+**Authentication times out**
+Ensure port 3456 is available and your browser can reach `http://localhost:3456/callback`. Check that your FreeAgent app's redirect URI is set to `http://localhost:3456/callback`.
 
 **401 Unauthorized errors**
-Your access token may have expired. FreeAgent OAuth tokens expire - you'll need to refresh your token using the OAuth2 refresh flow.
+Your tokens may have been revoked. Re-run `npx freeagent-mcp-server auth` to re-authenticate.
 
 **"FreeAgent API error (403)"**
 Your token may not have the required permission level. Check that your FreeAgent app has the appropriate access scopes.
 
 **Sandbox vs Production**
-By default the server connects to the FreeAgent sandbox. Set `FREEAGENT_BASE_URL=https://api.freeagent.com/v2` for production.
+By default the server connects to the FreeAgent sandbox. Set `FREEAGENT_SANDBOX=false` for production.
 
 **Tool not found**
 Ensure you're using the correct tool name with the `freeagent_` prefix (e.g., `freeagent_list_invoices`, not `list_invoices`).

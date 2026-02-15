@@ -151,6 +151,52 @@ describe("FreeAgentClient - DELETE", () => {
   });
 });
 
+describe("FreeAgentClient - token provider", () => {
+  it("accepts an async function as token provider", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    const provider = async () => "dynamic-token";
+    const client = new FreeAgentClient(provider);
+    await client.get("/v2/test");
+
+    const opts = mockFetch.mock.calls[0][1] as RequestInit;
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
+      "Bearer dynamic-token"
+    );
+  });
+
+  it("calls provider on each request", async () => {
+    let callCount = 0;
+    const provider = async () => `token-${++callCount}`;
+    const client = new FreeAgentClient(provider);
+
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    await client.get("/v2/test1");
+
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    await client.get("/v2/test2");
+
+    const opts1 = mockFetch.mock.calls[0][1] as RequestInit;
+    const opts2 = mockFetch.mock.calls[1][1] as RequestInit;
+    expect((opts1.headers as Record<string, string>).Authorization).toBe(
+      "Bearer token-1"
+    );
+    expect((opts2.headers as Record<string, string>).Authorization).toBe(
+      "Bearer token-2"
+    );
+  });
+
+  it("still works with a plain string token", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    const client = new FreeAgentClient("static-token");
+    await client.get("/v2/test");
+
+    const opts = mockFetch.mock.calls[0][1] as RequestInit;
+    expect((opts.headers as Record<string, string>).Authorization).toBe(
+      "Bearer static-token"
+    );
+  });
+});
+
 describe("FreeAgentClient - error handling", () => {
   it("throws FreeAgentApiError with parsed fields", async () => {
     mockFetch.mockResolvedValueOnce(

@@ -3,22 +3,32 @@ startCommand:
   configSchema:
     type: object
     required:
-      - freeagentAccessToken
+      - freeagentClientId
+      - freeagentClientSecret
     properties:
+      freeagentClientId:
+        type: string
+        description: Your FreeAgent OAuth2 client ID from the Developer Dashboard
+      freeagentClientSecret:
+        type: string
+        description: Your FreeAgent OAuth2 client secret from the Developer Dashboard
+      freeagentSandbox:
+        type: string
+        description: Set to "false" for production accounts (defaults to sandbox)
       freeagentAccessToken:
         type: string
-        description: Your FreeAgent OAuth2 access token
-      freeagentBaseUrl:
-        type: string
-        description: API base URL (defaults to sandbox)
+        description: Legacy - direct OAuth2 access token (skips stored token flow)
   commandFunction: |
     (config) => ({
       command: 'npx',
       args: ['-y', 'freeagent-mcp-server'],
       env: {
-        FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken,
-        ...(config.freeagentBaseUrl ? { FREEAGENT_BASE_URL: config.freeagentBaseUrl } : {})
+        FREEAGENT_CLIENT_ID: config.freeagentClientId,
+        FREEAGENT_CLIENT_SECRET: config.freeagentClientSecret,
+        ...(config.freeagentSandbox ? { FREEAGENT_SANDBOX: config.freeagentSandbox } : {}),
+        ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {})
       }
     })
   exampleConfig:
-    freeagentAccessToken: "your_access_token_here"
+    freeagentClientId: "your_client_id_here"
+    freeagentClientSecret: "your_client_secret_here"

@@ -32,11 +32,17 @@ function encodeFormBody(data: Record<string, string>): string {
 }
 
 export class FreeAgentClient {
-  private accessToken: string;
+  private getAccessToken: () => Promise<string>;
   private baseUrl: string;
 
-  constructor(accessToken: string, baseUrl?: string) {
-    this.accessToken = accessToken;
+  constructor(
+    tokenOrProvider: string | (() => Promise<string>),
+    baseUrl?: string
+  ) {
+    this.getAccessToken =
+      typeof tokenOrProvider === "function"
+        ? tokenOrProvider
+        : async () => tokenOrProvider;
     this.baseUrl = baseUrl || DEFAULT_BASE_URL;
   }
 
@@ -97,8 +103,9 @@ export class FreeAgentClient {
       }
     }
 
+    const accessToken = await this.getAccessToken();
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${this.accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
       "User-Agent": "freeagent-mcp/1.0.0",
     };
