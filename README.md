@@ -38,13 +38,13 @@ See the [FreeAgent API Quick Start](https://dev.freeagent.com/docs/quick_start) 
 ### Using npx (recommended)
 
 ```bash
-npx @samaxbytez/freeagent-mcp
+npx freeagent-mcp-server
 ```
 
 ### Global install
 
 ```bash
-npm install -g @samaxbytez/freeagent-mcp
+npm install -g freeagent-mcp-server
 freeagent-mcp
 ```
 
@@ -81,7 +81,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "freeagent": {
       "command": "npx",
-      "args": ["-y", "@samaxbytez/freeagent-mcp"],
+      "args": ["-y", "freeagent-mcp-server"],
       "env": {
         "FREEAGENT_ACCESS_TOKEN": "your_access_token_here"
       }
@@ -99,7 +99,7 @@ Add to your `.mcp.json`:
   "mcpServers": {
     "freeagent": {
       "command": "npx",
-      "args": ["-y", "@samaxbytez/freeagent-mcp"],
+      "args": ["-y", "freeagent-mcp-server"],
       "env": {
         "FREEAGENT_ACCESS_TOKEN": "your_access_token_here"
       }

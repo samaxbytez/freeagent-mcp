@@ -14,7 +14,7 @@ startCommand:
   commandFunction: |
     (config) => ({
       command: 'npx',
-      args: ['-y', '@samaxbytez/freeagent-mcp'],
+      args: ['-y', 'freeagent-mcp-server'],
       env: {
         FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken,
         ...(config.freeagentBaseUrl ? { FREEAGENT_BASE_URL: config.freeagentBaseUrl } : {})
