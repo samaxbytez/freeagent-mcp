@@ -87,7 +87,9 @@ export class FreeAgentClient {
     bodyType?: "form" | "json",
     params?: Record<string, string>
   ): Promise<T> {
-    const url = new URL(path, this.baseUrl);
+    const base = this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
+    const fullPath = path.startsWith("/") ? path.slice(1) : path;
+    const url = new URL(fullPath, base);
 
     if (params) {
       for (const [k, v] of Object.entries(params)) {
