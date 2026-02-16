@@ -26,10 +26,9 @@ MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provi
 ## Prerequisites
 
 1. Sign up for a [FreeAgent Developer](https://dev.freeagent.com/) account
-2. Create a sandbox account for testing
-3. Register an application in the Developer Dashboard
-4. Set the **OAuth redirect URI** to `http://localhost:3456/callback`
-5. Note your **Client ID** and **Client Secret**
+2. Register an application in the Developer Dashboard
+3. Set the **OAuth redirect URI** to `http://localhost:3456/callback`
+4. Note your **Client ID** and **Client Secret**
 
 See the [FreeAgent API Quick Start](https://dev.freeagent.com/docs/quick_start) for detailed instructions.
 
@@ -40,7 +39,7 @@ See the [FreeAgent API Quick Start](https://dev.freeagent.com/docs/quick_start) 
 ```bash
 export FREEAGENT_CLIENT_ID="your_client_id"
 export FREEAGENT_CLIENT_SECRET="your_client_secret"
-# export FREEAGENT_SANDBOX=false  # uncomment for production accounts
+# export FREEAGENT_SANDBOX=true  # uncomment to use sandbox instead of production
 ```
 
 ### 2. Authenticate (one-time)
@@ -49,7 +48,12 @@ export FREEAGENT_CLIENT_SECRET="your_client_secret"
 npx freeagent-mcp-server auth
 ```
 
-This opens your browser to authorize the app. After approval, tokens are saved to `~/.freeagent-mcp/tokens.json` and automatically refreshed when they expire.
+This opens your browser to authorize the app. The auth flow supports two modes:
+
+- **Automatic** (default) - A local server on port 3456 catches the OAuth redirect automatically. This is seamless when the port is available and the redirect URI is configured.
+- **Manual paste fallback** - If the redirect doesn't work (port busy, firewall, etc.), simply copy the full URL from your browser's address bar and paste it into the terminal. The URL will look like `http://localhost:3456/callback?code=...&state=...`.
+
+After approval, tokens are saved to `~/.freeagent-mcp/tokens.json` and automatically refreshed when they expire.
 
 ### 3. Configure your MCP client
 
@@ -88,13 +92,13 @@ npm start
 |----------|----------|-------------|
 | `FREEAGENT_CLIENT_ID` | Yes* | OAuth2 client ID from Developer Dashboard |
 | `FREEAGENT_CLIENT_SECRET` | Yes* | OAuth2 client secret from Developer Dashboard |
-| `FREEAGENT_SANDBOX` | No | Set to `false` for production (defaults to `true`) |
+| `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
 
-### Claude Desktop
+### Claude Desktop / Cowork
 
 Add to your `claude_desktop_config.json`:
 
@@ -112,6 +116,8 @@ Add to your `claude_desktop_config.json`:
   }
 }
 ```
+
+This works with both Claude Desktop chat and Claude Cowork. Make sure to run `npx freeagent-mcp-server auth` in your terminal first to complete the one-time OAuth setup.
 
 ### Claude Code
 
@@ -369,7 +375,10 @@ Set `FREEAGENT_CLIENT_ID` and `FREEAGENT_CLIENT_SECRET` environment variables, t
 You need to complete the one-time auth flow first: `npx freeagent-mcp-server auth`
 
 **Authentication times out**
-Ensure port 3456 is available and your browser can reach `http://localhost:3456/callback`. Check that your FreeAgent app's redirect URI is set to `http://localhost:3456/callback`.
+If the automatic redirect doesn't work, copy the full URL from your browser's address bar after approving and paste it into the terminal. Ensure your FreeAgent app's redirect URI is set to `http://localhost:3456/callback`.
+
+**Port 3456 is busy**
+The auth flow will automatically fall back to manual paste mode. Just paste the redirect URL from your browser after approving.
 
 **401 Unauthorized errors**
 Your tokens may have been revoked. Re-run `npx freeagent-mcp-server auth` to re-authenticate.
@@ -378,7 +387,7 @@ Your tokens may have been revoked. Re-run `npx freeagent-mcp-server auth` to re-
 Your token may not have the required permission level. Check that your FreeAgent app has the appropriate access scopes.
 
 **Sandbox vs Production**
-By default the server connects to the FreeAgent sandbox. Set `FREEAGENT_SANDBOX=false` for production.
+By default the server connects to the FreeAgent production API. Set `FREEAGENT_SANDBOX=true` to use the sandbox.
 
 **Tool not found**
 Ensure you're using the correct tool name with the `freeagent_` prefix (e.g., `freeagent_list_invoices`, not `list_invoices`).

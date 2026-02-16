@@ -6,6 +6,7 @@ import {
   refreshAccessToken,
   getValidAccessToken,
   getApiBase,
+  parseCallbackUrl,
   type StoredTokens,
   type OAuthConfig,
 } from "./auth.js";
@@ -177,6 +178,47 @@ describe("refreshAccessToken", () => {
     const url = mockFetch.mock.calls[0][0] as string;
     expect(url).toContain("api.freeagent.com/v2/token_endpoint");
     expect(url).not.toContain("sandbox");
+  });
+});
+
+describe("parseCallbackUrl", () => {
+  const state = "test-state-123";
+
+  it("extracts code from valid callback URL", () => {
+    const url = `http://localhost:3456/callback?code=abc123&state=${state}`;
+    const result = parseCallbackUrl(url, state);
+    expect(result).toEqual({ code: "abc123" });
+  });
+
+  it("returns error for OAuth error in URL", () => {
+    const url = `http://localhost:3456/callback?error=access_denied&state=${state}`;
+    const result = parseCallbackUrl(url, state);
+    expect(result).toEqual({ error: "OAuth error: access_denied" });
+  });
+
+  it("returns error when code is missing", () => {
+    const url = `http://localhost:3456/callback?state=${state}`;
+    const result = parseCallbackUrl(url, state);
+    expect(result).toEqual({ error: "No authorization code found in URL" });
+  });
+
+  it("returns error on state mismatch", () => {
+    const url = "http://localhost:3456/callback?code=abc123&state=wrong-state";
+    const result = parseCallbackUrl(url, state);
+    expect(result).toEqual({
+      error: "State mismatch - please use the URL from this auth session",
+    });
+  });
+
+  it("returns error for invalid URL", () => {
+    const result = parseCallbackUrl("not a url", state);
+    expect(result).toEqual({ error: "Not a valid URL" });
+  });
+
+  it("handles URL with extra whitespace", () => {
+    const url = `  http://localhost:3456/callback?code=abc123&state=${state}  `;
+    const result = parseCallbackUrl(url, state);
+    expect(result).toEqual({ code: "abc123" });
   });
 });
 

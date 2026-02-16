@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://api.sandbox.freeagent.com/v2";
+const DEFAULT_BASE_URL = "https://api.freeagent.com/v2";
 
 export class FreeAgentApiError extends Error {
   public readonly status: number;

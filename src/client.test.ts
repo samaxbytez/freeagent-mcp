@@ -65,26 +65,26 @@ describe("FreeAgentClient - GET", () => {
     expect(url).toContain("limit=10");
   });
 
-  it("uses default sandbox base URL", async () => {
+  it("uses default production base URL", async () => {
     mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
     const client = new FreeAgentClient("token");
     await client.get("/v2/company");
 
     const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("api.sandbox.freeagent.com");
+    expect(url).toContain("api.freeagent.com");
+    expect(url).not.toContain("sandbox");
   });
 
   it("uses custom base URL when provided", async () => {
     mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
     const client = new FreeAgentClient(
       "token",
-      "https://api.freeagent.com/v2"
+      "https://api.sandbox.freeagent.com/v2"
     );
     await client.get("/v2/company");
 
     const url = mockFetch.mock.calls[0][0] as string;
-    expect(url).toContain("api.freeagent.com");
-    expect(url).not.toContain("sandbox");
+    expect(url).toContain("api.sandbox.freeagent.com");
   });
 
   it("handles empty response body", async () => {

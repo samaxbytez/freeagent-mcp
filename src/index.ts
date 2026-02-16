@@ -23,7 +23,7 @@ import { registerAccountingTools } from "./tools/accounting.js";
 const FREEAGENT_ACCESS_TOKEN = process.env.FREEAGENT_ACCESS_TOKEN;
 const FREEAGENT_CLIENT_ID = process.env.FREEAGENT_CLIENT_ID;
 const FREEAGENT_CLIENT_SECRET = process.env.FREEAGENT_CLIENT_SECRET;
-const FREEAGENT_SANDBOX = process.env.FREEAGENT_SANDBOX !== "false";
+const FREEAGENT_SANDBOX = process.env.FREEAGENT_SANDBOX === "true";
 const FREEAGENT_BASE_URL = process.env.FREEAGENT_BASE_URL;
 
 function buildOAuthConfig(): OAuthConfig | null {

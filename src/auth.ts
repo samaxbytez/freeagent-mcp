@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createInterface } from "node:readline";
 import { exec } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { TOKEN_BUFFER_MS } from "./utils.js";
@@ -174,22 +175,109 @@ async function exchangeCodeForTokens(
   };
 }
 
+export function parseCallbackUrl(
+  input: string,
+  expectedState: string
+): { code: string } | { error: string } {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return { error: "Not a valid URL" };
+  }
+
+  const error = url.searchParams.get("error");
+  if (error) return { error: `OAuth error: ${error}` };
+
+  const code = url.searchParams.get("code");
+  if (!code) return { error: "No authorization code found in URL" };
+
+  const returnedState = url.searchParams.get("state");
+  if (returnedState !== expectedState) {
+    return { error: "State mismatch - please use the URL from this auth session" };
+  }
+
+  return { code };
+}
+
 export async function runAuthFlow(config: OAuthConfig): Promise<void> {
   const state = randomBytes(16).toString("hex");
   const base = getApiBase(config.sandbox);
+  const redirectUri = `http://localhost:${CALLBACK_PORT}/callback`;
   const authUrl =
     `${base}/approve_app?response_type=code` +
     `&client_id=${encodeURIComponent(config.clientId)}` +
-    `&redirect_uri=${encodeURIComponent(`http://localhost:${CALLBACK_PORT}/callback`)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&state=${encodeURIComponent(state)}`;
 
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let httpServer: ReturnType<typeof createServer> | null = null;
+    let rl: ReturnType<typeof createInterface> | null = null;
+
     const timeout = setTimeout(() => {
-      server.close();
+      if (settled) return;
+      settled = true;
+      cleanup();
       reject(new Error("Authentication timed out after 120 seconds"));
     }, AUTH_TIMEOUT_MS);
 
-    const server = createServer(
+    function cleanup() {
+      clearTimeout(timeout);
+      if (httpServer) httpServer.close();
+      if (rl) rl.close();
+    }
+
+    async function handleCode(code: string) {
+      if (settled) return;
+      settled = true;
+      try {
+        const tokens = await exchangeCodeForTokens(config, code);
+        saveTokens(tokens);
+        cleanup();
+        resolve();
+      } catch (err) {
+        cleanup();
+        reject(err);
+      }
+    }
+
+    function startStdinListener() {
+      rl = createInterface({ input: process.stdin });
+      rl.on("line", (line) => {
+        if (settled || !line.trim()) return;
+        const result = parseCallbackUrl(line, state);
+        if ("error" in result) {
+          // Silently ignore lines that aren't valid callback URLs
+          if (line.trim().startsWith("http")) {
+            console.log(`Invalid URL: ${result.error}. Try again.`);
+          }
+          return;
+        }
+        console.log("\nAuthorization code received from pasted URL!");
+        handleCode(result.code);
+      });
+    }
+
+    function printInstructions(serverRunning: boolean) {
+      console.log("\nOpening browser for FreeAgent authorization...");
+      console.log(`If the browser doesn't open, visit:\n${authUrl}\n`);
+
+      if (serverRunning) {
+        console.log(
+          "Waiting for redirect... If it doesn't work, paste the full\n" +
+            "redirect URL from your browser's address bar here:\n"
+        );
+      } else {
+        console.log(
+          "After approving, paste the full URL from your browser's\n" +
+            "address bar here (it will start with http://localhost:...):\n"
+        );
+      }
+    }
+
+    // Try to start the local HTTP server
+    httpServer = createServer(
       async (req: IncomingMessage, res: ServerResponse) => {
         const url = new URL(req.url || "/", `http://localhost:${CALLBACK_PORT}`);
 
@@ -199,64 +287,42 @@ export async function runAuthFlow(config: OAuthConfig): Promise<void> {
           return;
         }
 
-        const returnedState = url.searchParams.get("state");
-        const code = url.searchParams.get("code");
-        const error = url.searchParams.get("error");
+        const result = parseCallbackUrl(url.toString(), state);
 
-        if (error) {
+        if ("error" in result) {
           res.writeHead(400);
-          res.end(`Authentication failed: ${error}`);
-          clearTimeout(timeout);
-          server.close();
-          reject(new Error(`OAuth error: ${error}`));
+          res.end(result.error);
+          if (!settled) {
+            settled = true;
+            cleanup();
+            reject(new Error(result.error));
+          }
           return;
         }
 
-        if (returnedState !== state) {
-          res.writeHead(400);
-          res.end("State mismatch - possible CSRF attack");
-          clearTimeout(timeout);
-          server.close();
-          reject(new Error("OAuth state mismatch"));
-          return;
-        }
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(
+          "<html><body><h1>Authentication successful!</h1>" +
+            "<p>You can close this window and return to your terminal.</p>" +
+            "</body></html>"
+        );
 
-        if (!code) {
-          res.writeHead(400);
-          res.end("No authorization code received");
-          clearTimeout(timeout);
-          server.close();
-          reject(new Error("No authorization code in callback"));
-          return;
-        }
-
-        try {
-          const tokens = await exchangeCodeForTokens(config, code);
-          saveTokens(tokens);
-
-          res.writeHead(200, { "Content-Type": "text/html" });
-          res.end(
-            "<html><body><h1>Authentication successful!</h1>" +
-              "<p>You can close this window and return to your terminal.</p>" +
-              "</body></html>"
-          );
-
-          clearTimeout(timeout);
-          server.close();
-          resolve();
-        } catch (err) {
-          res.writeHead(500);
-          res.end("Token exchange failed");
-          clearTimeout(timeout);
-          server.close();
-          reject(err);
-        }
+        await handleCode(result.code);
       }
     );
 
-    server.listen(CALLBACK_PORT, () => {
-      console.log(`\nOpening browser for FreeAgent authorization...`);
-      console.log(`If the browser doesn't open, visit:\n${authUrl}\n`);
+    httpServer.on("error", () => {
+      // Port is busy - fall back to paste-only flow
+      httpServer = null;
+      console.log(`\nPort ${CALLBACK_PORT} is busy.`);
+      printInstructions(false);
+      startStdinListener();
+      openBrowser(authUrl);
+    });
+
+    httpServer.listen(CALLBACK_PORT, () => {
+      printInstructions(true);
+      startStdinListener();
       openBrowser(authUrl);
     });
   });

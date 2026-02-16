@@ -14,7 +14,7 @@ startCommand:
         description: Your FreeAgent OAuth2 client secret from the Developer Dashboard
       freeagentSandbox:
         type: string
-        description: Set to "false" for production accounts (defaults to sandbox)
+        description: Set to "true" to use sandbox instead of production (defaults to production)
       freeagentAccessToken:
         type: string
         description: Legacy - direct OAuth2 access token (skips stored token flow)
