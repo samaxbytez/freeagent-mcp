@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerTaskTools(server: McpServer, client: FreeAgentClient): void {
   // List tasks
@@ -46,7 +46,7 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
       title: "Get Task",
       description: "Get a specific task by ID from FreeAgent.",
       inputSchema: {
-        task_id: z.string().describe("The ID of the task to retrieve"),
+        task_id: safeId.describe("The ID of the task to retrieve"),
       },
     },
     async ({ task_id }) => {
@@ -117,7 +117,7 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
       title: "Update Task",
       description: "Update an existing task in FreeAgent.",
       inputSchema: {
-        task_id: z.string().describe("The ID of the task to update"),
+        task_id: safeId.describe("The ID of the task to update"),
         name: z.string().optional().describe("Name of the task"),
         is_billable: z
           .boolean()
@@ -162,7 +162,7 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
       title: "Delete Task",
       description: "Delete a task from FreeAgent.",
       inputSchema: {
-        task_id: z.string().describe("The ID of the task to delete"),
+        task_id: safeId.describe("The ID of the task to delete"),
       },
     },
     async ({ task_id }) => {

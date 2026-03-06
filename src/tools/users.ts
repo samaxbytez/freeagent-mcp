@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerUserTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -29,7 +29,7 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_get_user",
     "Get a specific user by ID",
     {
-      user_id: z.string().describe("The ID of the user to retrieve"),
+      user_id: safeId.describe("The ID of the user to retrieve"),
     },
     async ({ user_id }) => {
       logToolCall("freeagent_get_user", { user_id });
@@ -106,7 +106,7 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_update_user",
     "Update an existing user",
     {
-      user_id: z.string().describe("The ID of the user to update"),
+      user_id: safeId.describe("The ID of the user to update"),
       first_name: z.string().optional().describe("Updated first name"),
       last_name: z.string().optional().describe("Updated last name"),
       role: z
@@ -148,7 +148,7 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_delete_user",
     "Delete a user from the FreeAgent account",
     {
-      user_id: z.string().describe("The ID of the user to delete"),
+      user_id: safeId.describe("The ID of the user to delete"),
     },
     async ({ user_id }) => {
       logToolCall("freeagent_delete_user", { user_id });

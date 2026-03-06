@@ -95,7 +95,16 @@ export class FreeAgentClient {
   ): Promise<T> {
     const base = this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
     const fullPath = path.startsWith("/") ? path.slice(1) : path;
+
+    if (/\.\.[\\/]/.test(fullPath) || /^[a-z]+:\/\//i.test(fullPath)) {
+      throw new Error(`Unsafe API path rejected: ${fullPath}`);
+    }
+
     const url = new URL(fullPath, base);
+
+    if (url.origin !== new URL(base).origin) {
+      throw new Error(`Resolved URL origin does not match base: ${url.origin}`);
+    }
 
     if (params) {
       for (const [k, v] of Object.entries(params)) {
