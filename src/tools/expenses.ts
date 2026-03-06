@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerExpenseTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -45,7 +45,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_expense",
     "Get a single expense from FreeAgent by ID",
     {
-      expense_id: z.string().describe("The ID of the expense to retrieve"),
+      expense_id: safeId.describe("The ID of the expense to retrieve"),
     },
     async ({ expense_id }) => {
       logToolCall("freeagent_get_expense", { expense_id });
@@ -121,7 +121,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
     "freeagent_update_expense",
     "Update an existing expense in FreeAgent",
     {
-      expense_id: z.string().describe("The ID of the expense to update"),
+      expense_id: safeId.describe("The ID of the expense to update"),
       category: z.string().optional().describe("Category URL for the expense"),
       dated_on: z
         .string()
@@ -175,7 +175,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
     "freeagent_delete_expense",
     "Delete an expense from FreeAgent",
     {
-      expense_id: z.string().describe("The ID of the expense to delete"),
+      expense_id: safeId.describe("The ID of the expense to delete"),
     },
     async ({ expense_id }) => {
       logToolCall("freeagent_delete_expense", { expense_id });

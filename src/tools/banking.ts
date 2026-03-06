@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerBankingTools(server: McpServer, client: FreeAgentClient): void {
   // ── Bank Accounts ──────────────────────────────────────────────────
@@ -31,7 +31,7 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_bank_account",
     "Get a single bank account from FreeAgent by ID",
     {
-      bank_account_id: z.string().describe("The ID of the bank account to retrieve"),
+      bank_account_id: safeId.describe("The ID of the bank account to retrieve"),
     },
     async ({ bank_account_id }) => {
       logToolCall("freeagent_get_bank_account", { bank_account_id });
@@ -103,7 +103,7 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     "freeagent_update_bank_account",
     "Update an existing bank account in FreeAgent",
     {
-      bank_account_id: z.string().describe("The ID of the bank account to update"),
+      bank_account_id: safeId.describe("The ID of the bank account to update"),
       name: z.string().optional().describe("Name for the bank account"),
       bank_name: z.string().optional().describe("Name of the bank"),
       is_primary: z.boolean().optional().describe("Whether this is the primary account"),
@@ -128,7 +128,7 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     "freeagent_delete_bank_account",
     "Delete a bank account from FreeAgent",
     {
-      bank_account_id: z.string().describe("The ID of the bank account to delete"),
+      bank_account_id: safeId.describe("The ID of the bank account to delete"),
     },
     async ({ bank_account_id }) => {
       logToolCall("freeagent_delete_bank_account", { bank_account_id });
@@ -177,7 +177,7 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_bank_transaction",
     "Get a single bank transaction from FreeAgent by ID",
     {
-      bank_transaction_id: z.string().describe("The ID of the bank transaction to retrieve"),
+      bank_transaction_id: safeId.describe("The ID of the bank transaction to retrieve"),
     },
     async ({ bank_transaction_id }) => {
       logToolCall("freeagent_get_bank_transaction", { bank_transaction_id });

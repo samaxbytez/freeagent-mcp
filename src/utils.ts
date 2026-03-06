@@ -1,6 +1,10 @@
+import { z } from "zod";
+
 export const TOKEN_BUFFER_MS = 60_000;
 export const MAX_PAGE_SIZE = 50;
 export const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+export const safeId = z.string().regex(/^[a-zA-Z0-9_-]+$/, "ID must contain only alphanumeric characters, hyphens, and underscores");
 
 export function jsonResponse(data: unknown) {
   return {

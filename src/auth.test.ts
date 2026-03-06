@@ -93,7 +93,7 @@ describe("saveTokens", () => {
     saveTokens(validTokens);
     expect(mockMkdirSync).toHaveBeenCalledWith(
       expect.stringContaining(".freeagent-mcp"),
-      { recursive: true }
+      { recursive: true, mode: 0o700 }
     );
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining("tokens.json"),
