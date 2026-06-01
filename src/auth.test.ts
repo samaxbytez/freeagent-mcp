@@ -7,6 +7,7 @@ import {
   getValidAccessToken,
   getApiBase,
   parseCallbackUrl,
+  openBrowser,
   type StoredTokens,
   type OAuthConfig,
 } from "./auth.js";
@@ -22,7 +23,14 @@ vi.mock("node:os", () => ({
   homedir: vi.fn(() => "/mock-home"),
 }));
 
+vi.mock("node:child_process", () => ({
+  execFile: vi.fn(),
+}));
+
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execFile } from "node:child_process";
+
+const mockExecFile = vi.mocked(execFile);
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
@@ -256,5 +264,32 @@ describe("getValidAccessToken", () => {
     await expect(getValidAccessToken(testConfig)).rejects.toThrow(
       "No stored tokens found"
     );
+  });
+});
+
+describe("openBrowser", () => {
+  const originalPlatform = process.platform;
+  const url = "https://api.freeagent.com/v2/approve_app?code=abc&x=1";
+
+  const setPlatform = (platform: NodeJS.Platform) => {
+    Object.defineProperty(process, "platform", { value: platform });
+  };
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+    mockExecFile.mockClear();
+  });
+
+  // The URL is passed as a single literal arg on every platform — never a shell
+  // string — so query separators like `&` survive and no shell interpolation is
+  // possible. Windows uses explorer.exe to avoid cmd.exe's `&` parsing.
+  it.each([
+    ["win32", "explorer.exe", [url]],
+    ["darwin", "open", [url]],
+    ["linux", "xdg-open", [url]],
+  ] as const)("opens the URL on %s via %s", (platform, command, args) => {
+    setPlatform(platform);
+    openBrowser(url);
+    expect(mockExecFile).toHaveBeenCalledWith(command, args);
   });
 });
