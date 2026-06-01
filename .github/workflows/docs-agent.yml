@@ -1,0 +1,151 @@
+name: Docs agent
+
+# Keeps the README / docs in sync with code changes on a PR. Split into two
+# isolated jobs so the LLM and the write credential NEVER share a step — this
+# repo's threat model is indirect prompt injection, and the LLM reads
+# PR-controlled source diffs:
+#
+#   propose  (contents: read)  — runs Claude with NO Bash and NO write token, so
+#                                injected text in a source file has no shell to
+#                                exfiltrate secrets and no creds to push. Validates
+#                                the edits are docs-only and exports a patch.
+#   apply    (contents: write) — no LLM. Re-validates the patch is docs-only, then
+#                                applies and pushes it with RELEASE_PAT.
+#
+# Scope: same-repo PRs that touch src/**, dormant unless DOCS_AGENT_ENABLED=true.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/**"
+
+concurrency:
+  group: docs-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# Allowed documentation paths the agent may change (used by both jobs).
+env:
+  DOC_PATHS_REGEX: '^(README\.md|docs/)'
+
+jobs:
+  propose:
+    if: >-
+      ${{ vars.DOCS_AGENT_ENABLED == 'true'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      has_changes: ${{ steps.validate.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - name: Gate (skip our own docs-sync commits)
+        id: gate
+        run: |
+          SUBJECT=$(git log -1 --pretty=%s)
+          if echo "$SUBJECT" | grep -qiE '^docs: sync'; then
+            echo "Tip is our own docs-sync commit — skipping to avoid a loop."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute PR diff for the model
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git diff "origin/${{ github.base_ref }}...HEAD" -- src > "$RUNNER_TEMP/pr.diff"
+          wc -l "$RUNNER_TEMP/pr.diff"
+
+      - name: Edit docs (LLM, no Bash, no write token)
+        if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --model sonnet
+            --max-turns 30
+            --allowedTools "Read,Edit,Write,Grep,Glob"
+          prompt: |
+            You are the documentation agent for pull request
+            #${{ github.event.pull_request.number }}. You have NO shell and NO
+            git access — only file read/edit tools.
+
+            Read `.claude/agents/docs-updater.md` and follow it. The PR's code diff
+            is at `${{ runner.temp }}/pr.diff` — read it to see what changed, then
+            update ONLY documentation files (`README.md`, `docs/**`) so they match.
+            Do not modify anything under `src/` or `.github/`, and do not touch
+            `CHANGELOG.md`. If nothing is out of sync, make no changes.
+
+      - name: Validate docs-only and export patch
+        id: validate
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git add -A
+          CHANGED=$(git diff --cached --name-only)
+          if [ -z "$CHANGED" ]; then
+            echo "No documentation changes needed."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "Changed files:"; echo "$CHANGED"
+          BAD=$(echo "$CHANGED" | grep -vE "$DOC_PATHS_REGEX" || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Docs agent changed non-doc files; refusing to proceed:"
+            echo "$BAD"
+            exit 1
+          fi
+          git diff --cached > "$RUNNER_TEMP/docs.patch"
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload patch
+        if: steps.validate.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-patch
+          path: ${{ runner.temp }}/docs.patch
+          retention-days: 1
+
+  apply:
+    needs: propose
+    if: needs.propose.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: docs-patch
+          path: ${{ runner.temp }}
+
+      - name: Re-validate patch is docs-only
+        run: |
+          PATHS=$(grep -E '^\+\+\+ b/' "$RUNNER_TEMP/docs.patch" | sed 's#^\+\+\+ b/##')
+          echo "Patch touches:"; echo "$PATHS"
+          BAD=$(echo "$PATHS" | grep -vE "$DOC_PATHS_REGEX" || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::Patch touches non-doc files; refusing to apply:"
+            echo "$BAD"
+            exit 1
+          fi
+
+      - name: Apply and push
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git apply "$RUNNER_TEMP/docs.patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "docs: sync documentation with code changes"
+          git push "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:${HEAD_REF}"
