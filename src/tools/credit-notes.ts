@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerCreditNoteTools(server: McpServer, client: FreeAgentClient): void {
   // List credit notes
@@ -51,7 +51,7 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
     "freeagent_get_credit_note",
     "Get a single credit note from FreeAgent by ID",
     {
-      credit_note_id: z.string().describe("The ID of the credit note to retrieve"),
+      credit_note_id: safeId.describe("The ID of the credit note to retrieve"),
     },
     async ({ credit_note_id }) => {
       logToolCall("freeagent_get_credit_note", { credit_note_id });
@@ -110,7 +110,7 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
     "freeagent_update_credit_note",
     "Update an existing credit note in FreeAgent",
     {
-      credit_note_id: z.string().describe("The ID of the credit note to update"),
+      credit_note_id: safeId.describe("The ID of the credit note to update"),
       dated_on: z
         .string()
         .optional()
@@ -145,7 +145,7 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
     "freeagent_delete_credit_note",
     "Delete a credit note from FreeAgent",
     {
-      credit_note_id: z.string().describe("The ID of the credit note to delete"),
+      credit_note_id: safeId.describe("The ID of the credit note to delete"),
     },
     async ({ credit_note_id }) => {
       logToolCall("freeagent_delete_credit_note", { credit_note_id });

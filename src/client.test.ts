@@ -197,6 +197,36 @@ describe("FreeAgentClient - token provider", () => {
   });
 });
 
+describe("FreeAgentClient - path safety", () => {
+  it("rejects absolute URLs that would override the base", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    const client = new FreeAgentClient("token");
+
+    await expect(
+      client.get("https://evil.com/steal")
+    ).rejects.toThrow();
+  });
+
+  it("rejects paths with traversal sequences", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    const client = new FreeAgentClient("token");
+
+    await expect(
+      client.get("/contacts/../../users/me")
+    ).rejects.toThrow();
+  });
+
+  it("allows normal API paths", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
+    const client = new FreeAgentClient("token");
+
+    await client.get("/contacts/123");
+    const url = mockFetch.mock.calls[0][0] as string;
+    expect(url).toContain("api.freeagent.com");
+    expect(url).toContain("/contacts/123");
+  });
+});
+
 describe("FreeAgentClient - error handling", () => {
   it("throws FreeAgentApiError with parsed fields", async () => {
     mockFetch.mockResolvedValueOnce(

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerContactTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -47,7 +47,7 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_contact",
     "Get a single contact from FreeAgent by ID",
     {
-      contact_id: z.string().describe("The ID of the contact to retrieve"),
+      contact_id: safeId.describe("The ID of the contact to retrieve"),
     },
     async ({ contact_id }) => {
       logToolCall("freeagent_get_contact", { contact_id });
@@ -128,7 +128,7 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
     "freeagent_update_contact",
     "Update an existing contact in FreeAgent",
     {
-      contact_id: z.string().describe("The ID of the contact to update"),
+      contact_id: safeId.describe("The ID of the contact to update"),
       first_name: z.string().optional().describe("Contact first name"),
       last_name: z.string().optional().describe("Contact last name"),
       organisation_name: z.string().optional().describe("Organisation name"),
@@ -189,7 +189,7 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
     "freeagent_delete_contact",
     "Delete a contact from FreeAgent",
     {
-      contact_id: z.string().describe("The ID of the contact to delete"),
+      contact_id: safeId.describe("The ID of the contact to delete"),
     },
     async ({ contact_id }) => {
       logToolCall("freeagent_delete_contact", { contact_id });

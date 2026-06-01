@@ -4,6 +4,7 @@ import {
   errorResponse,
   buildParams,
   logToolCall,
+  safeId,
   TOKEN_BUFFER_MS,
   MAX_PAGE_SIZE,
   CACHE_TTL_MS,
@@ -84,6 +85,36 @@ describe("logToolCall", () => {
     logToolCall("test", { secret: longValue });
     const logged = JSON.parse(errorSpy.mock.calls[0][0] as string);
     expect(logged.secret).toBe("a".repeat(20) + "...");
+  });
+});
+
+describe("safeId", () => {
+  it("accepts numeric IDs", () => {
+    expect(safeId.parse("12345")).toBe("12345");
+  });
+
+  it("accepts alphanumeric IDs with hyphens and underscores", () => {
+    expect(safeId.parse("abc-123_DEF")).toBe("abc-123_DEF");
+  });
+
+  it("rejects path traversal sequences", () => {
+    expect(() => safeId.parse("../../users/me")).toThrow();
+  });
+
+  it("rejects IDs with slashes", () => {
+    expect(() => safeId.parse("123/456")).toThrow();
+  });
+
+  it("rejects IDs with query strings", () => {
+    expect(() => safeId.parse("123?admin=true")).toThrow();
+  });
+
+  it("rejects empty strings", () => {
+    expect(() => safeId.parse("")).toThrow();
+  });
+
+  it("rejects URLs", () => {
+    expect(() => safeId.parse("https://evil.com")).toThrow();
   });
 });
 

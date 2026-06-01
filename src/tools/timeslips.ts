@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerTimeslipTools(
   server: McpServer,
@@ -72,7 +72,7 @@ export function registerTimeslipTools(
       title: "Get Timeslip",
       description: "Get a single timeslip by its ID.",
       inputSchema: {
-        timeslip_id: z.string().describe("The timeslip ID"),
+        timeslip_id: safeId.describe("The timeslip ID"),
       },
     },
     async (args) => {
@@ -130,7 +130,7 @@ export function registerTimeslipTools(
       title: "Update Timeslip",
       description: "Update an existing timeslip in FreeAgent.",
       inputSchema: {
-        timeslip_id: z.string().describe("The timeslip ID"),
+        timeslip_id: safeId.describe("The timeslip ID"),
         dated_on: z
           .string()
           .optional()
@@ -169,7 +169,7 @@ export function registerTimeslipTools(
       title: "Delete Timeslip",
       description: "Delete a timeslip from FreeAgent.",
       inputSchema: {
-        timeslip_id: z.string().describe("The timeslip ID"),
+        timeslip_id: safeId.describe("The timeslip ID"),
       },
     },
     async (args) => {
@@ -193,7 +193,7 @@ export function registerTimeslipTools(
       description:
         "Start a running timer on a timeslip. The timeslip will accumulate time until the timer is stopped.",
       inputSchema: {
-        timeslip_id: z.string().describe("The timeslip ID"),
+        timeslip_id: safeId.describe("The timeslip ID"),
       },
     },
     async (args) => {
@@ -217,7 +217,7 @@ export function registerTimeslipTools(
       title: "Stop Timer",
       description: "Stop a running timer on a timeslip.",
       inputSchema: {
-        timeslip_id: z.string().describe("The timeslip ID"),
+        timeslip_id: safeId.describe("The timeslip ID"),
       },
     },
     async (args) => {

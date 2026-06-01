@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerInvoiceTools(server: McpServer, client: FreeAgentClient): void {
   // List invoices
@@ -33,7 +33,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_invoice",
     "Get a single invoice from FreeAgent by ID",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
     },
     async ({ invoice_id }) => {
       logToolCall("freeagent_get_invoice", { invoice_id });
@@ -85,7 +85,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_update_invoice",
     "Update an existing invoice in FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
       dated_on: z.string().optional().describe("Invoice date (YYYY-MM-DD)"),
       payment_terms_in_days: z.number().optional().describe("Payment terms in days"),
       reference: z.string().optional().describe("Invoice reference"),
@@ -112,7 +112,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_delete_invoice",
     "Delete an invoice from FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
     },
     async ({ invoice_id }) => {
       logToolCall("freeagent_delete_invoice", { invoice_id });
@@ -130,7 +130,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_mark_invoice_as_sent",
     "Mark an invoice as sent in FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
     },
     async ({ invoice_id }) => {
       logToolCall("freeagent_mark_invoice_as_sent", { invoice_id });
@@ -148,7 +148,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_mark_invoice_as_draft",
     "Mark an invoice as draft in FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
     },
     async ({ invoice_id }) => {
       logToolCall("freeagent_mark_invoice_as_draft", { invoice_id });
@@ -166,7 +166,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_mark_invoice_as_cancelled",
     "Cancel an invoice in FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
     },
     async ({ invoice_id }) => {
       logToolCall("freeagent_mark_invoice_as_cancelled", { invoice_id });
@@ -184,7 +184,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     "freeagent_send_invoice_email",
     "Send an invoice by email from FreeAgent",
     {
-      invoice_id: z.string().describe("The invoice ID"),
+      invoice_id: safeId.describe("The invoice ID"),
       to: z.string().describe("Recipient email address"),
       from_email: z.string().optional().describe("Sender email address"),
       subject: z.string().optional().describe("Email subject line"),

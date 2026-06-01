@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerProjectTools(server: McpServer, client: FreeAgentClient): void {
   // List projects
@@ -30,7 +30,7 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
     "freeagent_get_project",
     "Get a single project from FreeAgent by ID",
     {
-      project_id: z.string().describe("The project ID"),
+      project_id: safeId.describe("The project ID"),
     },
     async ({ project_id }) => {
       logToolCall("freeagent_get_project", { project_id });
@@ -82,7 +82,7 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
     "freeagent_update_project",
     "Update an existing project in FreeAgent",
     {
-      project_id: z.string().describe("The project ID"),
+      project_id: safeId.describe("The project ID"),
       name: z.string().optional().describe("Project name"),
       status: z.enum(["Active", "Completed", "Cancelled", "Hidden"]).optional().describe("Project status"),
       budget: z.number().optional().describe("Project budget"),
@@ -116,7 +116,7 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
     "freeagent_delete_project",
     "Delete a project from FreeAgent",
     {
-      project_id: z.string().describe("The project ID"),
+      project_id: safeId.describe("The project ID"),
     },
     async ({ project_id }) => {
       logToolCall("freeagent_delete_project", { project_id });

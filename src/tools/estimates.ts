@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerEstimateTools(server: McpServer, client: FreeAgentClient): void {
   // List estimates
@@ -40,7 +40,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     "freeagent_get_estimate",
     "Get a single estimate from FreeAgent by ID",
     {
-      estimate_id: z.string().describe("The estimate ID"),
+      estimate_id: safeId.describe("The estimate ID"),
     },
     async ({ estimate_id }) => {
       logToolCall("freeagent_get_estimate", { estimate_id });
@@ -111,7 +111,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     "freeagent_update_estimate",
     "Update an existing estimate in FreeAgent",
     {
-      estimate_id: z.string().describe("The estimate ID"),
+      estimate_id: safeId.describe("The estimate ID"),
       dated_on: z.string().optional().describe("Estimate date (YYYY-MM-DD)"),
       payment_terms_in_days: z
         .number()
@@ -140,7 +140,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     "freeagent_delete_estimate",
     "Delete an estimate from FreeAgent",
     {
-      estimate_id: z.string().describe("The estimate ID"),
+      estimate_id: safeId.describe("The estimate ID"),
     },
     async ({ estimate_id }) => {
       logToolCall("freeagent_delete_estimate", { estimate_id });
@@ -158,7 +158,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     "freeagent_mark_estimate_as_sent",
     "Mark an estimate as sent in FreeAgent",
     {
-      estimate_id: z.string().describe("The estimate ID"),
+      estimate_id: safeId.describe("The estimate ID"),
     },
     async ({ estimate_id }) => {
       logToolCall("freeagent_mark_estimate_as_sent", { estimate_id });
@@ -179,7 +179,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     "freeagent_mark_estimate_as_approved",
     "Mark an estimate as approved in FreeAgent",
     {
-      estimate_id: z.string().describe("The estimate ID"),
+      estimate_id: safeId.describe("The estimate ID"),
     },
     async ({ estimate_id }) => {
       logToolCall("freeagent_mark_estimate_as_approved", { estimate_id });

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerBillTools(server: McpServer, client: FreeAgentClient): void {
   // List bills
@@ -55,7 +55,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_get_bill",
     "Get a single bill from FreeAgent by ID",
     {
-      bill_id: z.string().describe("The ID of the bill to retrieve"),
+      bill_id: safeId.describe("The ID of the bill to retrieve"),
     },
     async ({ bill_id }) => {
       logToolCall("freeagent_get_bill", { bill_id });
@@ -110,7 +110,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_update_bill",
     "Update an existing bill in FreeAgent",
     {
-      bill_id: z.string().describe("The ID of the bill to update"),
+      bill_id: safeId.describe("The ID of the bill to update"),
       reference: z.string().optional().describe("Bill reference"),
       dated_on: z.string().optional().describe("Bill date (YYYY-MM-DD)"),
       due_on: z.string().optional().describe("Bill due date (YYYY-MM-DD)"),
@@ -136,7 +136,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
     "freeagent_delete_bill",
     "Delete a bill from FreeAgent",
     {
-      bill_id: z.string().describe("The ID of the bill to delete"),
+      bill_id: safeId.describe("The ID of the bill to delete"),
     },
     async ({ bill_id }) => {
       logToolCall("freeagent_delete_bill", { bill_id });
