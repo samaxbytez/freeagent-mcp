@@ -1,0 +1,134 @@
+name: Release agent
+
+# Runs Claude Code after a merge to main. It reads the Conventional Commits
+# since the last release tag, decides the semver bump, and opens/updates a
+# single "release PR" (branch: release/next) that bumps the version and
+# regenerates CHANGELOG.md / the README version. It does NOT publish and does
+# NOT push to main — merging the release PR triggers publish.yml (OIDC), which
+# does the actual npm publish, tag, and GitHub Release.
+#
+# Requirements (one-time setup):
+#   1. Repo secret  ANTHROPIC_API_KEY  — for the Claude Code action.
+#   2. Repo secret  RELEASE_PAT        — a fine-grained PAT with
+#      Contents: read & write and Pull requests: read & write on this repo.
+#      Needed because PRs created with the default GITHUB_TOKEN do NOT trigger
+#      the CI workflow, so required checks would never run on the release PR.
+#   3. Settings → Actions → General → "Allow GitHub Actions to create and
+#      approve pull requests" must be enabled.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release-agent
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Gate (skip release commits, require releasable changes)
+        id: gate
+        env:
+          PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::warning::RELEASE_PAT secret not set — skipping release agent."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          SUBJECT=$(git log -1 --pretty=%s)
+          if echo "$SUBJECT" | grep -qiE '^chore: release'; then
+            echo "Tip commit is a release commit — skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          git fetch --tags --force --quiet
+          LAST_TAG=$(git tag --sort=-v:refname | head -1)
+          if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; else RANGE="HEAD"; fi
+          if git log $RANGE --pretty=%s | grep -qE '^(feat|fix|perf)(\(.+\))?!?:'; then
+            echo "Releasable changes since ${LAST_TAG:-start}."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No feat/fix/perf commits since ${LAST_TAG:-start} — skipping."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Author/update release PR
+        if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.RELEASE_PAT }}
+          claude_args: |
+            --model sonnet
+            --max-turns 40
+            --allowedTools "Bash,Read,Edit,Write"
+          prompt: |
+            You are the automated release author for this repository, running
+            headlessly in CI after a merge to `main`. Your job is to open or
+            update a single "release PR". You must NOT publish and must NOT push
+            to `main`.
+
+            Do the following:
+
+            1. `git fetch --tags --force`, then find the latest semver tag:
+               `git tag --sort=-v:refname | head -1` (call it LAST_TAG). If there
+               is no tag, treat the entire history as releasable.
+            2. List the Conventional Commits since LAST_TAG:
+               `git log LAST_TAG..HEAD --pretty=format:%s` (full history if no tag).
+            3. Decide the semver bump from those subjects, relative to the current
+               version in package.json:
+                 - any `feat` → minor
+                 - else any `fix` or `perf` → patch
+                 - any `!` after the type or a `BREAKING CHANGE:` footer → major
+               If there are no feat/fix/perf/breaking commits, do nothing and stop.
+            4. Configure git identity, then reset the release branch from the
+               current main:
+                 git config user.name "github-actions[bot]"
+                 git config user.email "github-actions[bot]@users.noreply.github.com"
+                 git checkout -B release/next
+            5. Set the new version WITHOUT creating a tag:
+               `npm version <newversion> --no-git-tag-version`
+               (this updates package.json and package-lock.json).
+            6. Update CHANGELOG.md: prepend a new section
+               `## [<newversion>] - <YYYY-MM-DD>` (use `date +%F` for the date),
+               following the existing Keep a Changelog style. Group bullets under
+               Added / Changed / Fixed / Security based on commit type
+               (feat→Added, fix→Fixed, security-related→Security, others→Changed).
+               Write concise, human-readable summaries of the actual changes — not
+               raw commit lines. Update the version-compare links at the bottom if
+               that pattern exists.
+            7. If README.md has a hardcoded version in an install example
+               (e.g. `freeagent-mcp-server@X.Y.Z`), update it to the new version.
+               Change nothing else in the README.
+            8. Commit and push the branch:
+                 git add -A
+                 git commit -m "chore: release <newversion>"
+                 git push -f origin release/next
+            9. Open or update the PR (head: release/next, base: main):
+                 - If an open PR already exists
+                   (`gh pr list --head release/next --state open --json number`),
+                   update it with `gh pr edit <num> --title ... --body ...`.
+                 - Otherwise create it with `gh pr create --base main
+                   --head release/next --title "chore: release <newversion>"
+                   --body ...`.
+               The body should explain the bump rationale, summarize the changelog
+               highlights, and note that merging it triggers the npm publish.
+
+            HARD RULES — do not violate:
+            - NEVER run `npm publish`, `git tag`, `npm version` with tagging, or
+              push to `main`.
+            - NEVER edit any file under `.github/`.
+            - Only modify: package.json, package-lock.json, CHANGELOG.md, and a
+              version string in README.md.
