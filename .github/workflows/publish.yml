@@ -1,0 +1,79 @@
+name: Publish to npm
+
+# Publishes to npm whenever package.json's version changes on main (i.e. a
+# release PR is merged). Ordinary merges are no-ops because the version guard
+# skips versions already present on the registry.
+#
+# Authentication uses npm Trusted Publishing (OIDC) — no NPM_TOKEN secret is
+# required. Configure the trusted publisher on npmjs.com to point at this
+# workflow file (publish.yml) before the first release lands.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # create the release tag + GitHub Release
+  id-token: write # OIDC token for npm auth + provenance
+
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Determine version and whether it is new
+        id: v
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION already published — skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Publishing $NAME@$VERSION."
+          fi
+
+      - name: Install dependencies
+        if: steps.v.outputs.exists == 'false'
+        run: npm ci
+
+      - name: Verify (lint, type-check, test, build)
+        if: steps.v.outputs.exists == 'false'
+        run: |
+          npm run lint
+          npm run type-check
+          npm test
+          npm run build
+
+      - name: Ensure npm supports OIDC trusted publishing
+        if: steps.v.outputs.exists == 'false'
+        run: npm install -g npm@latest
+
+      - name: Publish to npm
+        if: steps.v.outputs.exists == 'false'
+        run: npm publish --access public --provenance
+
+      - name: Tag release and create GitHub Release
+        if: steps.v.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.v.outputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
