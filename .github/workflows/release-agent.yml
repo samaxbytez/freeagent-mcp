@@ -54,11 +54,14 @@ jobs:
           git fetch --tags --force --quiet
           LAST_TAG=$(git tag --sort=-v:refname | head -1)
           if [ -n "$LAST_TAG" ]; then RANGE="$LAST_TAG..HEAD"; else RANGE="HEAD"; fi
-          if git log $RANGE --pretty=%s | grep -qE '^(feat|fix|perf)(\(.+\))?!?:'; then
+          # Read FULL commit messages (%B) so a BREAKING CHANGE footer or a `!`
+          # under any type (e.g. `refactor!:`) is detected, not just the subject.
+          LOG=$(git log $RANGE --pretty=format:'%B')
+          if printf '%s\n' "$LOG" | grep -qE '^(feat|fix|perf)(\([^)]+\))?!?:|^[a-z]+(\([^)]+\))?!:|^BREAKING[ -]CHANGE:'; then
             echo "Releasable changes since ${LAST_TAG:-start}."
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "No feat/fix/perf commits since ${LAST_TAG:-start} — skipping."
+            echo "No releasable commits since ${LAST_TAG:-start} — skipping."
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -85,14 +88,19 @@ jobs:
             1. `git fetch --tags --force`, then find the latest semver tag:
                `git tag --sort=-v:refname | head -1` (call it LAST_TAG). If there
                is no tag, treat the entire history as releasable.
-            2. List the Conventional Commits since LAST_TAG:
-               `git log LAST_TAG..HEAD --pretty=format:%s` (full history if no tag).
-            3. Decide the semver bump from those subjects, relative to the current
-               version in package.json:
-                 - any `feat` → minor
+            2. List the Conventional Commits since LAST_TAG with their FULL
+               messages (subject AND body/footers), e.g.
+               `git log LAST_TAG..HEAD --pretty=format:'%H%n%B%n---'`
+               (full history if no tag). You must inspect bodies/footers, not just
+               subjects, because breaking changes can be declared in a footer.
+            3. Decide the semver bump, relative to the current version in
+               package.json:
+                 - a `!` after the type in the subject (e.g. `feat!:`, `fix!:`,
+                   `refactor!:`) OR a `BREAKING CHANGE:` / `BREAKING-CHANGE:` footer
+                   in any commit body → major (regardless of the commit type)
+                 - else any `feat` → minor
                  - else any `fix` or `perf` → patch
-                 - any `!` after the type or a `BREAKING CHANGE:` footer → major
-               If there are no feat/fix/perf/breaking commits, do nothing and stop.
+               If there are no releasable commits, do nothing and stop.
             4. Configure git identity, then reset the release branch from the
                current main:
                  git config user.name "github-actions[bot]"
