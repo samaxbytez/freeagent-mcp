@@ -30,6 +30,11 @@ permissions:
 
 jobs:
   release-pr:
+    # Master on/off switch. The agent stays dormant until the repo variable
+    # RELEASE_AGENT_ENABLED is set to "true" (Settings → Secrets and variables →
+    # Actions → Variables). This lets the ANTHROPIC_API_KEY / RELEASE_PAT secrets
+    # exist with placeholder values without triggering failing runs.
+    if: ${{ vars.RELEASE_AGENT_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

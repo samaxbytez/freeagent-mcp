@@ -107,6 +107,10 @@ The release agent needs:
   not trigger CI, so required checks would never run on the release PR.
 - **Settings → Actions → General → "Allow GitHub Actions to create and approve
   pull requests"** enabled.
+- Repo **variable** **`RELEASE_AGENT_ENABLED`** set to `true` — the master
+  on/off switch. The agent stays dormant until this is `true`, so the two secrets
+  can hold placeholder values without causing failing runs. Flip it on only after
+  the real secret values are in place.
 
 npm publishing uses a **Trusted Publisher (OIDC)** bound to `publish.yml` — no
 npm token is stored anywhere, and only `publish.yml` can publish.
