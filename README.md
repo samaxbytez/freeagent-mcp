@@ -399,6 +399,12 @@ Ensure you're using the correct tool name with the `freeagent_` prefix (e.g., `f
 **Empty responses**
 Some endpoints return empty responses for successful DELETE operations. This is expected behavior.
 
+## Releasing
+
+Releases are automated from [Conventional Commits](https://www.conventionalcommits.org/) —
+see [RELEASING.md](RELEASING.md). In short: merging `feat:`/`fix:` PRs to `main`
+opens a release PR (version bump + changelog); merging that PR publishes to npm.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for the release history. The latest published
