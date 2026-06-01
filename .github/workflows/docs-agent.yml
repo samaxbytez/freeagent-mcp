@@ -1,0 +1,82 @@
+name: Docs agent
+
+# Runs Claude Code on code PRs to keep the README / docs in sync with the change
+# (tool tables, counts, feature list, env vars). It edits docs only and pushes a
+# "docs: sync" commit to the PR branch.
+#
+# Scope & safety:
+#   - Only same-repo PRs (fork PRs can't access secrets, by GitHub design).
+#   - Only when src/** changed.
+#   - Dormant unless the repo variable DOCS_AGENT_ENABLED is "true".
+#   - Reuses the ANTHROPIC_API_KEY and RELEASE_PAT secrets. The PAT push makes CI
+#     re-run on the docs commit; a skip-own-commit gate prevents a loop.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "src/**"
+
+concurrency:
+  group: docs-agent-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  docs:
+    if: >-
+      ${{ vars.DOCS_AGENT_ENABLED == 'true'
+      && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Gate (skip our own docs commits)
+        id: gate
+        env:
+          PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::warning::RELEASE_PAT not set — skipping docs agent."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          SUBJECT=$(git log -1 --pretty=%s)
+          if echo "$SUBJECT" | grep -qiE '^docs: sync'; then
+            echo "Tip is our own docs-sync commit — skipping to avoid a loop."
+            echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Sync docs with code
+        if: steps.gate.outputs.run == 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.RELEASE_PAT }}
+          claude_args: |
+            --model sonnet
+            --max-turns 30
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+          prompt: |
+            You are the documentation agent running on pull request
+            #${{ github.event.pull_request.number }}, head branch
+            `${{ github.event.pull_request.head.ref }}`.
+
+            Read `.claude/agents/docs-updater.md` and follow it exactly to sync the
+            documentation with this PR's code changes. Diff the PR against the base
+            branch with `git diff origin/${{ github.base_ref }}...HEAD`.
+
+            If you make documentation edits, commit them as
+            `docs: sync documentation with code changes` and push with
+            `git push origin HEAD:${{ github.event.pull_request.head.ref }}`.
+            If nothing is out of sync, do nothing. Never modify files under `src/`
+            or `.github/`.
