@@ -280,29 +280,16 @@ describe("openBrowser", () => {
     mockExecFile.mockClear();
   });
 
-  it("invokes 'start' via cmd /c on Windows (start is a shell builtin)", () => {
-    setPlatform("win32");
+  // Windows must go via `cmd /c start` because `start` is a shell builtin.
+  // The exact-arg assertions also prove the URL is passed as a discrete array
+  // element (never a shell string), so no shell interpolation is possible.
+  it.each([
+    ["win32", "cmd", ["/c", "start", "", url]],
+    ["darwin", "open", [url]],
+    ["linux", "xdg-open", [url]],
+  ] as const)("opens the URL on %s via %s", (platform, command, args) => {
+    setPlatform(platform);
     openBrowser(url);
-    expect(mockExecFile).toHaveBeenCalledWith("cmd", ["/c", "start", "", url]);
-  });
-
-  it("uses 'open' on macOS", () => {
-    setPlatform("darwin");
-    openBrowser(url);
-    expect(mockExecFile).toHaveBeenCalledWith("open", [url]);
-  });
-
-  it("uses 'xdg-open' on Linux", () => {
-    setPlatform("linux");
-    openBrowser(url);
-    expect(mockExecFile).toHaveBeenCalledWith("xdg-open", [url]);
-  });
-
-  it("passes the URL as a literal arg, never via a shell string", () => {
-    setPlatform("linux");
-    openBrowser(url);
-    const [, args] = mockExecFile.mock.calls[0];
-    // URL is a discrete array element — no shell interpolation possible.
-    expect(args).toContain(url);
+    expect(mockExecFile).toHaveBeenCalledWith(command, args);
   });
 });
