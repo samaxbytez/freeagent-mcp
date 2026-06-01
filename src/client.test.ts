@@ -51,7 +51,7 @@ describe("FreeAgentClient - GET", () => {
       "application/json"
     );
     expect((opts.headers as Record<string, string>)["User-Agent"]).toBe(
-      "freeagent-mcp/1.0.0"
+      "freeagent-mcp-server"
     );
   });
 
