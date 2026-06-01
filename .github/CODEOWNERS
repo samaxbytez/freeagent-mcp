@@ -1,0 +1,7 @@
+# Code owners for freeagent-mcp
+# Syntax: https://docs.github.com/articles/about-code-owners
+# The owner is automatically requested for review on any pull request that
+# touches matching paths.
+
+# Default owner for everything in the repo.
+* @samaxbytez
