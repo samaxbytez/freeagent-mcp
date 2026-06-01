@@ -124,15 +124,17 @@ export async function getValidAccessToken(
   }
 }
 
-function openBrowser(url: string): void {
+export function openBrowser(url: string): void {
   const platform = process.platform;
-  const cmd =
-    platform === "darwin"
-      ? "open"
-      : platform === "win32"
-        ? "start"
-        : "xdg-open";
-  execFile(cmd, [url]);
+  // On Windows `start` is a cmd.exe builtin, not an executable, so it must be
+  // invoked via `cmd /c`. The empty string is the (ignored) window title — it
+  // stops `start` from consuming the URL as the title. execFile keeps args as a
+  // literal array, so no shell interpolation of the URL occurs.
+  if (platform === "win32") {
+    execFile("cmd", ["/c", "start", "", url]);
+  } else {
+    execFile(platform === "darwin" ? "open" : "xdg-open", [url]);
+  }
 }
 
 async function exchangeCodeForTokens(

@@ -7,6 +7,7 @@ import {
   getValidAccessToken,
   getApiBase,
   parseCallbackUrl,
+  openBrowser,
   type StoredTokens,
   type OAuthConfig,
 } from "./auth.js";
@@ -22,7 +23,14 @@ vi.mock("node:os", () => ({
   homedir: vi.fn(() => "/mock-home"),
 }));
 
+vi.mock("node:child_process", () => ({
+  execFile: vi.fn(),
+}));
+
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execFile } from "node:child_process";
+
+const mockExecFile = vi.mocked(execFile);
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
@@ -256,5 +264,45 @@ describe("getValidAccessToken", () => {
     await expect(getValidAccessToken(testConfig)).rejects.toThrow(
       "No stored tokens found"
     );
+  });
+});
+
+describe("openBrowser", () => {
+  const originalPlatform = process.platform;
+  const url = "https://api.freeagent.com/v2/approve_app?code=abc&x=1";
+
+  const setPlatform = (platform: NodeJS.Platform) => {
+    Object.defineProperty(process, "platform", { value: platform });
+  };
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform });
+    mockExecFile.mockClear();
+  });
+
+  it("invokes 'start' via cmd /c on Windows (start is a shell builtin)", () => {
+    setPlatform("win32");
+    openBrowser(url);
+    expect(mockExecFile).toHaveBeenCalledWith("cmd", ["/c", "start", "", url]);
+  });
+
+  it("uses 'open' on macOS", () => {
+    setPlatform("darwin");
+    openBrowser(url);
+    expect(mockExecFile).toHaveBeenCalledWith("open", [url]);
+  });
+
+  it("uses 'xdg-open' on Linux", () => {
+    setPlatform("linux");
+    openBrowser(url);
+    expect(mockExecFile).toHaveBeenCalledWith("xdg-open", [url]);
+  });
+
+  it("passes the URL as a literal arg, never via a shell string", () => {
+    setPlatform("linux");
+    openBrowser(url);
+    const [, args] = mockExecFile.mock.calls[0];
+    // URL is a discrete array element — no shell interpolation possible.
+    expect(args).toContain(url);
   });
 });
