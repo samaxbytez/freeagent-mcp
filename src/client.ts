@@ -116,7 +116,7 @@ export class FreeAgentClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${accessToken}`,
       Accept: "application/json",
-      "User-Agent": "freeagent-mcp/1.0.0",
+      "User-Agent": "freeagent-mcp-server",
     };
 
     let encodedBody: string | undefined;
