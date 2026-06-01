@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       has_changes: ${{ steps.validate.outputs.has_changes }}
     steps:
@@ -62,11 +63,15 @@ jobs:
           git diff "origin/${{ github.base_ref }}...HEAD" -- src > "$RUNNER_TEMP/pr.diff"
           wc -l "$RUNNER_TEMP/pr.diff"
 
-      - name: Edit docs (LLM, no Bash, no write token)
+      - name: Edit docs (LLM, no Bash, read-only token)
         if: steps.gate.outputs.run == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Read-only token (job permissions are read) so the action can
+          # authenticate without OIDC. The LLM still cannot push (no write perms,
+          # no Bash); the write PAT lives only in the separate apply job.
+          github_token: ${{ github.token }}
           claude_args: |
             --model sonnet
             --max-turns 30
