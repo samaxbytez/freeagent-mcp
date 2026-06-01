@@ -31,27 +31,28 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
-      - name: Determine version and whether it is new
+      - name: Determine version and whether it is already published
         id: v
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::$NAME@$VERSION already published — skipping."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION already on npm — skipping publish."
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "published=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Publishing $NAME@$VERSION."
           fi
 
       - name: Install dependencies
-        if: steps.v.outputs.exists == 'false'
+        if: steps.v.outputs.published == 'false'
         run: npm ci
 
       - name: Verify (lint, type-check, test, build)
-        if: steps.v.outputs.exists == 'false'
+        if: steps.v.outputs.published == 'false'
         run: |
           npm run lint
           npm run type-check
@@ -59,21 +60,28 @@ jobs:
           npm run build
 
       - name: Ensure npm supports OIDC trusted publishing
-        if: steps.v.outputs.exists == 'false'
+        if: steps.v.outputs.published == 'false'
         run: npm install -g npm@latest
 
       - name: Publish to npm
-        if: steps.v.outputs.exists == 'false'
+        if: steps.v.outputs.published == 'false'
         run: npm publish --access public --provenance
 
-      - name: Tag release and create GitHub Release
-        if: steps.v.outputs.exists == 'false'
+      # Idempotent and decoupled from the publish guard: creates the tag and
+      # Release only if missing, so a rerun after a partial failure (publish
+      # succeeded but tagging/Release did not) repairs the release. On ordinary
+      # merges where the tag already exists, both checks are cheap no-ops.
+      - name: Ensure release tag and GitHub Release exist
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="v${{ steps.v.outputs.version }}"
-          git tag "$TAG"
-          git push origin "$TAG"
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+          TAG="${{ steps.v.outputs.tag }}"
+          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+          fi
