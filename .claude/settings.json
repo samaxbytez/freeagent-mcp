@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "git ls-files -m -o --exclude-standard -- 'src/**/*.ts' | xargs -r npx --no-install prettier --write >/dev/null 2>&1 || true"
+            "command": "files=$(git ls-files -m -o --exclude-standard -- 'src/**/*.ts'); [ -z \"$files\" ] || printf '%s\\n' \"$files\" | xargs npx --no-install prettier --write >/dev/null 2>&1 || true"
           }
         ]
       }
