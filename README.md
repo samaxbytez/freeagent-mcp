@@ -61,6 +61,8 @@ See the [Configuration](#configuration) section below.
 
 ## Installation
 
+> **Requirements:** Node.js 18 or later.
+
 ### Using npx (recommended)
 
 ```bash
@@ -73,6 +75,8 @@ npx freeagent-mcp-server
 npm install -g freeagent-mcp-server
 freeagent-mcp
 ```
+
+To pin a specific version, append `@<version>` (e.g. `npm install -g freeagent-mcp-server@1.3.0`).
 
 ### Build from source
 
@@ -394,6 +398,11 @@ Ensure you're using the correct tool name with the `freeagent_` prefix (e.g., `f
 
 **Empty responses**
 Some endpoints return empty responses for successful DELETE operations. This is expected behavior.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history. The latest published
+version is shown by the npm badge at the top of this README.
 
 ## License
 
