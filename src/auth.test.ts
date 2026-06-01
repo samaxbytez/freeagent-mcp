@@ -280,11 +280,11 @@ describe("openBrowser", () => {
     mockExecFile.mockClear();
   });
 
-  // Windows must go via `cmd /c start` because `start` is a shell builtin.
-  // The exact-arg assertions also prove the URL is passed as a discrete array
-  // element (never a shell string), so no shell interpolation is possible.
+  // The URL is passed as a single literal arg on every platform — never a shell
+  // string — so query separators like `&` survive and no shell interpolation is
+  // possible. Windows uses explorer.exe to avoid cmd.exe's `&` parsing.
   it.each([
-    ["win32", "cmd", ["/c", "start", "", url]],
+    ["win32", "explorer.exe", [url]],
     ["darwin", "open", [url]],
     ["linux", "xdg-open", [url]],
   ] as const)("opens the URL on %s via %s", (platform, command, args) => {

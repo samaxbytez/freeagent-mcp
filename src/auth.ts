@@ -126,12 +126,14 @@ export async function getValidAccessToken(
 
 export function openBrowser(url: string): void {
   const platform = process.platform;
-  // On Windows `start` is a cmd.exe builtin, not an executable, so it must be
-  // invoked via `cmd /c`. The empty string is the (ignored) window title — it
-  // stops `start` from consuming the URL as the title. execFile keeps args as a
-  // literal array, so no shell interpolation of the URL occurs.
+  // Windows has no `open`/`xdg-open` equivalent. Avoid `cmd /c start`: cmd.exe
+  // treats `&` as a command separator, and execFile won't quote the URL (it has
+  // no spaces), so the OAuth URL would be truncated at its first `&` query
+  // separator. explorer.exe is a real executable that opens the URL in the
+  // default browser; execFile passes it as a single literal arg (CommandLineToArgvW
+  // parsing, where `&` is not special), so the query string survives intact.
   if (platform === "win32") {
-    execFile("cmd", ["/c", "start", "", url]);
+    execFile("explorer.exe", [url]);
   } else {
     execFile(platform === "darwin" ? "open" : "xdg-open", [url]);
   }
