@@ -99,6 +99,7 @@ npm start
 | `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
+| `FREEAGENT_ATTACHMENTS_DIR` | No | Confine `attachment_path` reads to this directory tree (see [Attachments](#attachments)) |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
 
@@ -173,6 +174,40 @@ freeagent-mcp/
 ├── package.json
 ├── tsconfig.json
 └── smithery.yaml
+```
+
+## Attachments
+
+`freeagent_create_expense`, `freeagent_update_expense`, `freeagent_create_bill` and
+`freeagent_update_bill` accept an optional `attachment_path` pointing at a receipt or
+invoice on local disk. The file is read by the server, base64-encoded and sent **in the
+same request** as the record itself, so an expense is never created without its receipt.
+
+```jsonc
+{
+  "user": "https://api.freeagent.com/v2/users/1",
+  "category": "https://api.freeagent.com/v2/categories/270",
+  "dated_on": "2026-08-05",
+  "gross_value": "189.99",
+  "attachment_path": "./invoice.pdf"
+}
+```
+
+PDF, PNG and JPEG only, 5MB maximum, which is what the FreeAgent API itself accepts.
+
+### Confining reads
+
+This is the server's only local file read, and it is reachable by whatever drives the
+MCP client. Symlinks and `..` are resolved before the type is checked, so a `.pdf`
+symlink pointing at a private key is rejected rather than uploaded, and only regular
+files are read.
+
+If the client may process untrusted input (supplier emails, scanned documents, anything
+carrying a prompt-injection risk), set `FREEAGENT_ATTACHMENTS_DIR` to the one directory
+receipts live in. Reads resolving outside that tree are refused:
+
+```bash
+export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
 ```
 
 ## Tools Reference
