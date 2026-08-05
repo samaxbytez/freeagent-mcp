@@ -1,5 +1,6 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
 /**
  * Reading attachments off local disk is the only practical way to expose FreeAgent's
@@ -35,6 +36,14 @@ export const ATTACHMENT_CONTENT_TYPES: Readonly<Record<string, string>> = Object
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
 });
+
+/** Shared so the four tools that accept an attachment cannot drift in wording. */
+export const attachmentPathSchema = z
+  .string()
+  .optional()
+  .describe(
+    "Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."
+  );
 
 export interface Attachment {
   data: string;

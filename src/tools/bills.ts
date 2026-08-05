@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
 import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
-import { readAttachment } from "../attachment.js";
+import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerBillTools(server: McpServer, client: FreeAgentClient): void {
   // List bills
@@ -83,10 +83,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .describe('JSON array of bill items, e.g. [{"category":"https://...","description":"Item","total_value":"100.00","sales_tax_rate":"20.0"}]'),
       currency: z.string().optional().describe("Currency code, e.g. GBP"),
       comments: z.string().optional().describe("Comments on the bill"),
-      attachment_path: z
-        .string()
-        .optional()
-        .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
+      attachment_path: attachmentPathSchema,
     },
     async ({ contact, reference, dated_on, due_on, bill_items, currency, comments, attachment_path }) => {
       logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on, attachment_path });
@@ -121,10 +118,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
       dated_on: z.string().optional().describe("Bill date (YYYY-MM-DD)"),
       due_on: z.string().optional().describe("Bill due date (YYYY-MM-DD)"),
       comments: z.string().optional().describe("Comments on the bill"),
-      attachment_path: z
-        .string()
-        .optional()
-        .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
+      attachment_path: attachmentPathSchema,
     },
     async ({ bill_id, attachment_path, ...rest }) => {
       logToolCall("freeagent_update_bill", { bill_id, ...rest, attachment_path });

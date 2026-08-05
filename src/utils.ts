@@ -40,9 +40,8 @@ export function logToolCall(tool: string, params?: Record<string, unknown>) {
       // *_path values are the audit record of which local file was read, so a long
       // path truncated to 20 chars ("C:\Users\ChrisCoomb...") would defeat the point.
       // They are filenames, not secrets.
-      const isPath = k.endsWith("_path");
       sanitized[k] =
-        typeof v === "string" && v.length > 100 && !isPath
+        typeof v === "string" && v.length > 100 && !k.endsWith("_path")
           ? v.slice(0, 20) + "..."
           : v;
     }

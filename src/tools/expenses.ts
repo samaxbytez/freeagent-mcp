@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
 import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
-import { readAttachment } from "../attachment.js";
+import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerExpenseTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -82,10 +82,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .string()
         .optional()
         .describe("Receipt reference for the expense"),
-      attachment_path: z
-        .string()
-        .optional()
-        .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
+      attachment_path: attachmentPathSchema,
     },
     async ({
       user,
@@ -148,10 +145,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .string()
         .optional()
         .describe("Receipt reference for the expense"),
-      attachment_path: z
-        .string()
-        .optional()
-        .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
+      attachment_path: attachmentPathSchema,
     },
     async ({
       expense_id,
