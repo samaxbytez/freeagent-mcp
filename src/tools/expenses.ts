@@ -100,7 +100,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
       receipt_reference,
       attachment_path,
     }) => {
-      logToolCall("freeagent_create_expense", { user, category, dated_on, gross_value });
+      logToolCall("freeagent_create_expense", { user, category, dated_on, gross_value, attachment_path });
       try {
         const expense: Record<string, unknown> = {
           user,
@@ -164,7 +164,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
       receipt_reference,
       attachment_path,
     }) => {
-      logToolCall("freeagent_update_expense", { expense_id });
+      logToolCall("freeagent_update_expense", { expense_id, attachment_path });
       try {
         const expense: Record<string, unknown> = {};
         if (category !== undefined) expense.category = category;

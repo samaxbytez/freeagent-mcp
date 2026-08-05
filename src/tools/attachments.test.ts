@@ -45,10 +45,13 @@ beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), "fa-tools-attach-"));
   pdf = path.join(dir, "invoice.pdf");
   await writeFile(pdf, PDF_BYTES);
+  // readAttachment is default-deny; without a root every attach below would fail.
+  process.env.FREEAGENT_ATTACHMENTS_DIR = dir;
 });
 
 afterEach(async () => {
   errorSpy.mockRestore();
+  delete process.env.FREEAGENT_ATTACHMENTS_DIR;
   await rm(dir, { recursive: true, force: true });
 });
 

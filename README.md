@@ -99,7 +99,7 @@ npm start
 | `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
-| `FREEAGENT_ATTACHMENTS_DIR` | No | Confine `attachment_path` reads to this directory tree (see [Attachments](#attachments)) |
+| `FREEAGENT_ATTACHMENTS_DIR` | For attachments | Directory `attachment_path` may read from. Required to use attachments at all (see [Attachments](#attachments)) |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
 
@@ -195,20 +195,27 @@ same request** as the record itself, so an expense is never created without its 
 
 PDF, PNG and JPEG only, 5MB maximum, which is what the FreeAgent API itself accepts.
 
-### Confining reads
-
-This is the server's only local file read, and it is reachable by whatever drives the
-MCP client. Symlinks and `..` are resolved before the type is checked, so a `.pdf`
-symlink pointing at a private key is rejected rather than uploaded, and only regular
-files are read.
-
-If the client may process untrusted input (supplier emails, scanned documents, anything
-carrying a prompt-injection risk), set `FREEAGENT_ATTACHMENTS_DIR` to the one directory
-receipts live in. Reads resolving outside that tree are refused:
+### `FREEAGENT_ATTACHMENTS_DIR` is required
 
 ```bash
 export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
 ```
+
+Without it, `attachment_path` is refused. This is the server's only local file read, and
+it is driven by a model whose inputs an attacker may influence, so it is scoped rather
+than open.
+
+The reason it is not merely advisory: an unrestricted read would reach any PDF, PNG or
+JPEG on the machine, which is where bank statements, contracts, scanned ID and
+screenshots of credentials live. Nor does the data stop in your own books. The API
+returns `attachment.content_src`, a pre-signed S3 URL that downloads with **no token**,
+and `freeagent_get_expense` returns it to the model. Scoping the read to one directory
+is what breaks that chain.
+
+Also enforced: symlinks and `..` are resolved before anything is judged, so a `.pdf`
+symlink pointing at a private key is rejected rather than uploaded; the extension
+allowlist gates the file checks as well as the read, so error messages cannot be used to
+probe what exists elsewhere; and only regular files are read.
 
 ## Tools Reference
 

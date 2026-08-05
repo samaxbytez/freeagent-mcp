@@ -89,7 +89,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
     },
     async ({ contact, reference, dated_on, due_on, bill_items, currency, comments, attachment_path }) => {
-      logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on });
+      logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on, attachment_path });
       try {
         const parsedItems = JSON.parse(bill_items);
         const bill: Record<string, unknown> = {
@@ -127,7 +127,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .describe("Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."),
     },
     async ({ bill_id, attachment_path, ...rest }) => {
-      logToolCall("freeagent_update_bill", { bill_id, ...rest });
+      logToolCall("freeagent_update_bill", { bill_id, ...rest, attachment_path });
       try {
         const bill: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(rest)) {
