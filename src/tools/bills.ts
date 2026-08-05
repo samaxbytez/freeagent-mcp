@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
 import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerBillTools(server: McpServer, client: FreeAgentClient): void {
   // List bills
@@ -82,9 +83,10 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .describe('JSON array of bill items, e.g. [{"category":"https://...","description":"Item","total_value":"100.00","sales_tax_rate":"20.0"}]'),
       currency: z.string().optional().describe("Currency code, e.g. GBP"),
       comments: z.string().optional().describe("Comments on the bill"),
+      attachment_path: attachmentPathSchema,
     },
-    async ({ contact, reference, dated_on, due_on, bill_items, currency, comments }) => {
-      logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on });
+    async ({ contact, reference, dated_on, due_on, bill_items, currency, comments, attachment_path }) => {
+      logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on, attachment_path });
       try {
         const parsedItems = JSON.parse(bill_items);
         const bill: Record<string, unknown> = {
@@ -96,6 +98,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         };
         if (currency !== undefined) bill.currency = currency;
         if (comments !== undefined) bill.comments = comments;
+        if (attachment_path !== undefined) bill.attachment = await readAttachment(attachment_path);
 
         const data = await client.postJson("/bills", { bill });
         return jsonResponse(data);
@@ -115,14 +118,17 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
       dated_on: z.string().optional().describe("Bill date (YYYY-MM-DD)"),
       due_on: z.string().optional().describe("Bill due date (YYYY-MM-DD)"),
       comments: z.string().optional().describe("Comments on the bill"),
+      attachment_path: attachmentPathSchema,
     },
-    async ({ bill_id, ...rest }) => {
-      logToolCall("freeagent_update_bill", { bill_id, ...rest });
+    async ({ bill_id, attachment_path, ...rest }) => {
+      logToolCall("freeagent_update_bill", { bill_id, ...rest, attachment_path });
       try {
         const bill: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(rest)) {
           if (v !== undefined) bill[k] = v;
         }
+        // Destructured out of `rest` above: this is a local path, not a bill field.
+        if (attachment_path !== undefined) bill.attachment = await readAttachment(attachment_path);
         const data = await client.putJson(`/bills/${bill_id}`, { bill });
         return jsonResponse(data);
       } catch (error) {

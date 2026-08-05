@@ -99,6 +99,7 @@ npm start
 | `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
+| `FREEAGENT_ATTACHMENTS_DIR` | For attachments | Directory `attachment_path` may read from. Required to use attachments at all (see [Attachments](#attachments)) |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
 
@@ -174,6 +175,47 @@ freeagent-mcp/
 ├── tsconfig.json
 └── smithery.yaml
 ```
+
+## Attachments
+
+`freeagent_create_expense`, `freeagent_update_expense`, `freeagent_create_bill` and
+`freeagent_update_bill` accept an optional `attachment_path` pointing at a receipt or
+invoice on local disk. The file is read by the server, base64-encoded and sent **in the
+same request** as the record itself, so an expense is never created without its receipt.
+
+```jsonc
+{
+  "user": "https://api.freeagent.com/v2/users/1",
+  "category": "https://api.freeagent.com/v2/categories/270",
+  "dated_on": "2026-08-05",
+  "gross_value": "189.99",
+  "attachment_path": "./invoice.pdf"
+}
+```
+
+PDF, PNG and JPEG only, 5MB maximum, which is what the FreeAgent API itself accepts.
+
+### `FREEAGENT_ATTACHMENTS_DIR` is required
+
+```bash
+export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
+```
+
+Without it, `attachment_path` is refused. This is the server's only local file read, and
+it is driven by a model whose inputs an attacker may influence, so it is scoped rather
+than open.
+
+The reason it is not merely advisory: an unrestricted read would reach any PDF, PNG or
+JPEG on the machine, which is where bank statements, contracts, scanned ID and
+screenshots of credentials live. Nor does the data stop in your own books. The API
+returns `attachment.content_src`, a pre-signed S3 URL that downloads with **no token**,
+and `freeagent_get_expense` returns it to the model. Scoping the read to one directory
+is what breaks that chain.
+
+Also enforced: symlinks and `..` are resolved before anything is judged, so a `.pdf`
+symlink pointing at a private key is rejected rather than uploaded; the extension
+allowlist gates the file checks as well as the read, so error messages cannot be used to
+probe what exists elsewhere; and only regular files are read.
 
 ## Tools Reference
 
