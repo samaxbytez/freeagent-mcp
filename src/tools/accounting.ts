@@ -17,10 +17,10 @@ export function registerAccountingTools(server: McpServer, client: FreeAgentClie
         .optional()
         .describe("End date for the P&L report in YYYY-MM-DD format"),
     },
-    async ({ from_date, to_date }) => {
-      logToolCall("freeagent_get_profit_and_loss", { from_date, to_date });
+    async (args) => {
+      logToolCall("freeagent_get_profit_and_loss", args);
       try {
-        const params = buildParams({ from_date, to_date });
+        const params = buildParams(args);
         const data = await client.get("/accounting/profit_and_loss/summary", params);
         return jsonResponse(data);
       } catch (error) {
@@ -38,10 +38,10 @@ export function registerAccountingTools(server: McpServer, client: FreeAgentClie
         .optional()
         .describe("Date to retrieve the balance sheet as at, in YYYY-MM-DD format"),
     },
-    async ({ as_at_date }) => {
-      logToolCall("freeagent_get_balance_sheet", { as_at_date });
+    async (args) => {
+      logToolCall("freeagent_get_balance_sheet", args);
       try {
-        const params = buildParams({ as_at_date });
+        const params = buildParams(args);
         const data = await client.get("/accounting/balance_sheet", params);
         return jsonResponse(data);
       } catch (error) {
@@ -78,10 +78,10 @@ export function registerAccountingTools(server: McpServer, client: FreeAgentClie
         .optional()
         .describe("End date for the trial balance in YYYY-MM-DD format"),
     },
-    async ({ from_date, to_date }) => {
-      logToolCall("freeagent_get_trial_balance", { from_date, to_date });
+    async (args) => {
+      logToolCall("freeagent_get_trial_balance", args);
       try {
-        const params = buildParams({ from_date, to_date });
+        const params = buildParams(args);
         const data = await client.get("/accounting/trial_balance/summary", params);
         return jsonResponse(data);
       } catch (error) {

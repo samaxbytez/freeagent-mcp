@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerUserTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -14,10 +14,10 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
         .describe("Filter users by view type"),
       ...paginationParams,
     },
-    async ({ view, page, per_page }) => {
-      logToolCall("freeagent_list_users", { view, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_users", args);
       try {
-        const params = buildParams({ view, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/users", params);
         return listResponse(data);
       } catch (error) {
@@ -86,15 +86,7 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
     async ({ email, first_name, last_name, role, permission_level }) => {
       logToolCall("freeagent_create_user", { email, first_name, last_name, role, permission_level });
       try {
-        const body: Record<string, unknown> = {
-          email,
-          first_name,
-          last_name,
-          role,
-        };
-        if (permission_level !== undefined) {
-          body.permission_level = permission_level;
-        }
+        const body = definedOnly({ email, first_name, last_name, role, permission_level });
         const data = await client.postJson("/users", { user: body });
         return jsonResponse(data);
       } catch (error) {
@@ -132,11 +124,7 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
     async ({ user_id, first_name, last_name, role, permission_level }) => {
       logToolCall("freeagent_update_user", { user_id, first_name, last_name, role, permission_level });
       try {
-        const body: Record<string, unknown> = {};
-        if (first_name !== undefined) body.first_name = first_name;
-        if (last_name !== undefined) body.last_name = last_name;
-        if (role !== undefined) body.role = role;
-        if (permission_level !== undefined) body.permission_level = permission_level;
+        const body = definedOnly({ first_name, last_name, role, permission_level });
         const data = await client.putJson(`/users/${user_id}`, { user: body });
         return jsonResponse(data);
       } catch (error) {

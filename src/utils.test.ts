@@ -8,22 +8,20 @@ import {
   safeId,
   TOKEN_BUFFER_MS,
   MAX_PAGE_SIZE,
-  CACHE_TTL_MS,
 } from "./utils.js";
 
 describe("jsonResponse", () => {
   it("returns correct MCP content structure", () => {
     const result = jsonResponse({ foo: "bar" });
     expect(result).toEqual({
-      content: [{ type: "text", text: '{\n  "foo": "bar"\n}' }],
+      content: [{ type: "text", text: '{"foo":"bar"}' }],
     });
   });
 
-  it("handles nested objects with pretty printing", () => {
+  it("serialises nested objects compactly", () => {
     const data = { a: { b: [1, 2] } };
     const result = jsonResponse(data);
-    expect(JSON.parse(result.content[0].text)).toEqual(data);
-    expect(result.content[0].text).toContain("\n");
+    expect(result.content[0].text).toBe('{"a":{"b":[1,2]}}');
   });
 });
 
@@ -123,7 +121,6 @@ describe("constants", () => {
   it("has expected values", () => {
     expect(TOKEN_BUFFER_MS).toBe(60_000);
     expect(MAX_PAGE_SIZE).toBe(100);
-    expect(CACHE_TTL_MS).toBe(24 * 60 * 60 * 1000);
   });
 });
 

@@ -1,7 +1,23 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
+
+// Shared by create and update: update takes every field as optional.
+const projectFields = {
+  name: z.string().describe("Project name"),
+  status: z.enum(["Active", "Completed", "Cancelled", "Hidden"]).describe("Project status"),
+  budget: z.number().describe("Project budget"),
+  budget_units: z.enum(["Hours", "Days", "Monetary"]).describe("Budget units"),
+  currency: z.string().describe("Currency code"),
+  normal_billing_rate: z.string().optional().describe("Normal billing rate"),
+  hours_per_day: z.string().optional().describe("Hours per day"),
+  billing_period: z.enum(["hour", "day", "week", "month", "year"]).optional().describe("Billing period"),
+  is_ir35: z.boolean().optional().describe("Whether the project is IR35"),
+  starts_on: z.string().optional().describe("Project start date (YYYY-MM-DD)"),
+  ends_on: z.string().optional().describe("Project end date (YYYY-MM-DD)"),
+  uses_project_invoice_sequence: z.boolean().optional().describe("Whether to use project invoice sequence"),
+};
 
 export function registerProjectTools(server: McpServer, client: FreeAgentClient): void {
   // List projects
@@ -14,10 +30,10 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
       contact: z.string().optional().describe("Filter by contact URL"),
       ...paginationParams,
     },
-    async ({ view, sort, contact, page, per_page }) => {
-      logToolCall("freeagent_list_projects", { view, sort, contact, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_projects", args);
       try {
-        const params = buildParams({ view, sort, contact, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/projects", params);
         return listResponse(data);
       } catch (error) {
@@ -50,26 +66,12 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
     "Create a new project in FreeAgent",
     {
       contact: z.string().describe("Contact URL"),
-      name: z.string().describe("Project name"),
-      status: z.enum(["Active", "Completed", "Cancelled", "Hidden"]).describe("Project status"),
-      budget: z.number().describe("Project budget"),
-      budget_units: z.enum(["Hours", "Days", "Monetary"]).describe("Budget units"),
-      currency: z.string().describe("Currency code"),
-      normal_billing_rate: z.string().optional().describe("Normal billing rate"),
-      hours_per_day: z.string().optional().describe("Hours per day"),
-      billing_period: z.enum(["hour", "day", "week", "month", "year"]).optional().describe("Billing period"),
-      is_ir35: z.boolean().optional().describe("Whether the project is IR35"),
-      starts_on: z.string().optional().describe("Project start date (YYYY-MM-DD)"),
-      ends_on: z.string().optional().describe("Project end date (YYYY-MM-DD)"),
-      uses_project_invoice_sequence: z.boolean().optional().describe("Whether to use project invoice sequence"),
+      ...projectFields,
     },
     async (params) => {
       logToolCall("freeagent_create_project", params);
       try {
-        const project: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(params)) {
-          if (v !== undefined) project[k] = v;
-        }
+        const project = definedOnly(params);
         const data = await client.postJson("/projects", { project });
         return jsonResponse(data);
       } catch (error) {
@@ -84,26 +86,12 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
     "Update an existing project in FreeAgent",
     {
       project_id: safeId.describe("The project ID"),
-      name: z.string().optional().describe("Project name"),
-      status: z.enum(["Active", "Completed", "Cancelled", "Hidden"]).optional().describe("Project status"),
-      budget: z.number().optional().describe("Project budget"),
-      budget_units: z.enum(["Hours", "Days", "Monetary"]).optional().describe("Budget units"),
-      currency: z.string().optional().describe("Currency code"),
-      normal_billing_rate: z.string().optional().describe("Normal billing rate"),
-      hours_per_day: z.string().optional().describe("Hours per day"),
-      billing_period: z.enum(["hour", "day", "week", "month", "year"]).optional().describe("Billing period"),
-      is_ir35: z.boolean().optional().describe("Whether the project is IR35"),
-      starts_on: z.string().optional().describe("Project start date (YYYY-MM-DD)"),
-      ends_on: z.string().optional().describe("Project end date (YYYY-MM-DD)"),
-      uses_project_invoice_sequence: z.boolean().optional().describe("Whether to use project invoice sequence"),
+      ...z.object(projectFields).partial().shape,
     },
     async ({ project_id, ...rest }) => {
       logToolCall("freeagent_update_project", { project_id, ...rest });
       try {
-        const project: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rest)) {
-          if (v !== undefined) project[k] = v;
-        }
+        const project = definedOnly(rest);
         const data = await client.putJson(`/projects/${project_id}`, { project });
         return jsonResponse(data);
       } catch (error) {

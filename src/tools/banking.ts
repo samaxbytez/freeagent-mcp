@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerBankingTools(server: McpServer, client: FreeAgentClient): void {
   // ── Bank Accounts ──────────────────────────────────────────────────
@@ -16,10 +16,10 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
         .describe("Filter bank accounts by type"),
       ...paginationParams,
     },
-    async ({ view, page, per_page }) => {
-      logToolCall("freeagent_list_bank_accounts", { view, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_bank_accounts", args);
       try {
-        const params = buildParams({ view, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/bank_accounts", params);
         return listResponse(data);
       } catch (error) {
@@ -78,19 +78,19 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     }) => {
       logToolCall("freeagent_create_bank_account", { type, name, bank_name });
       try {
-        const bank_account: Record<string, unknown> = {
+        const bank_account = definedOnly({
           type,
           name,
           bank_name,
-        };
-        if (currency !== undefined) bank_account.currency = currency;
-        if (opening_balance !== undefined) bank_account.opening_balance = opening_balance;
-        if (is_personal !== undefined) bank_account.is_personal = is_personal;
-        if (is_primary !== undefined) bank_account.is_primary = is_primary;
-        if (account_number !== undefined) bank_account.account_number = account_number;
-        if (sort_code !== undefined) bank_account.sort_code = sort_code;
-        if (iban !== undefined) bank_account.iban = iban;
-        if (bic !== undefined) bank_account.bic = bic;
+          currency,
+          opening_balance,
+          is_personal,
+          is_primary,
+          account_number,
+          sort_code,
+          iban,
+          bic,
+        });
 
         const data = await client.postJson("/bank_accounts", { bank_account });
         return jsonResponse(data);
@@ -112,10 +112,7 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
     async ({ bank_account_id, name, bank_name, is_primary }) => {
       logToolCall("freeagent_update_bank_account", { bank_account_id });
       try {
-        const bank_account: Record<string, unknown> = {};
-        if (name !== undefined) bank_account.name = name;
-        if (bank_name !== undefined) bank_account.bank_name = bank_name;
-        if (is_primary !== undefined) bank_account.is_primary = is_primary;
+        const bank_account = definedOnly({ name, bank_name, is_primary });
 
         const data = await client.putJson(`/bank_accounts/${bank_account_id}`, { bank_account });
         return jsonResponse(data);
@@ -163,10 +160,10 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
         .describe("Filter transactions by view"),
       ...paginationParams,
     },
-    async ({ bank_account, from_date, to_date, updated_since, view, page, per_page }) => {
-      logToolCall("freeagent_list_bank_transactions", { bank_account, from_date, to_date, view, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_bank_transactions", args);
       try {
-        const params = buildParams({ bank_account, from_date, to_date, updated_since, view, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/bank_transactions", params);
         return listResponse(data);
       } catch (error) {
