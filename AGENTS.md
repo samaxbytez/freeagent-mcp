@@ -55,6 +55,9 @@ and test following this pattern.
 - **Browser launch** uses `execFile` (never `exec`/shell) and `explorer.exe` on
   Windows — never reintroduce shell interpolation of a URL.
 - **Token file** is written `0o600` in a `0o700` directory. Never log tokens.
+- **Attachments** (`src/attachment.ts`) are the only local file read. Reads are
+  confined to `FREEAGENT_ATTACHMENTS_DIR`, checked lexically before touching the
+  filesystem and again after `realpath`, with an extension allowlist on both.
 
 ## Conventions
 
@@ -81,3 +84,4 @@ after adding, removing or renaming a tool.
 - Don't run `npm publish` or create tags manually.
 - Don't commit secrets or tokens.
 - Don't relax `safeId` / the client origin check / `execFile` usage.
+- Don't make `FREEAGENT_ATTACHMENTS_DIR` optional or default it to a broad path.

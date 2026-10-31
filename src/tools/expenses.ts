@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
 import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerExpenseTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -82,6 +83,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .string()
         .optional()
         .describe("Receipt reference for the expense"),
+      attachment_path: attachmentPathSchema,
     },
     async ({
       user,
@@ -94,8 +96,9 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
       project,
       rebill_type,
       receipt_reference,
+      attachment_path,
     }) => {
-      logToolCall("freeagent_create_expense", { user, category, dated_on, gross_value });
+      logToolCall("freeagent_create_expense", { user, category, dated_on, gross_value, attachment_path });
       try {
         const expense: Record<string, unknown> = {
           user,
@@ -109,6 +112,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         if (project !== undefined) expense.project = project;
         if (rebill_type !== undefined) expense.rebill_type = rebill_type;
         if (receipt_reference !== undefined) expense.receipt_reference = receipt_reference;
+        if (attachment_path !== undefined) expense.attachment = await readAttachment(attachment_path);
 
         const data = await client.postJson("/expenses", { expense });
         return jsonResponse(data);
@@ -142,6 +146,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .string()
         .optional()
         .describe("Receipt reference for the expense"),
+      attachment_path: attachmentPathSchema,
     },
     async ({
       expense_id,
@@ -152,8 +157,9 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
       sales_tax_rate,
       project,
       receipt_reference,
+      attachment_path,
     }) => {
-      logToolCall("freeagent_update_expense", { expense_id });
+      logToolCall("freeagent_update_expense", { expense_id, attachment_path });
       try {
         const expense: Record<string, unknown> = {};
         if (category !== undefined) expense.category = category;
@@ -163,6 +169,7 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         if (sales_tax_rate !== undefined) expense.sales_tax_rate = sales_tax_rate;
         if (project !== undefined) expense.project = project;
         if (receipt_reference !== undefined) expense.receipt_reference = receipt_reference;
+        if (attachment_path !== undefined) expense.attachment = await readAttachment(attachment_path);
 
         const data = await client.putJson(`/expenses/${expense_id}`, { expense });
         return jsonResponse(data);

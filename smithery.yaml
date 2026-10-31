@@ -21,6 +21,9 @@ startCommand:
       freeagentEnableSensitiveTools:
         type: string
         description: Set to "true" to enable user-management and invoice-email tools (off by default)
+      freeagentAttachmentsDir:
+        type: string
+        description: Directory attachment_path may read receipts from. Required to attach files to expenses and bills.
   commandFunction: |
     (config) => ({
       command: 'npx',
@@ -30,7 +33,8 @@ startCommand:
         FREEAGENT_CLIENT_SECRET: config.freeagentClientSecret,
         ...(config.freeagentSandbox ? { FREEAGENT_SANDBOX: config.freeagentSandbox } : {}),
         ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {}),
-        ...(config.freeagentEnableSensitiveTools ? { FREEAGENT_ENABLE_SENSITIVE_TOOLS: config.freeagentEnableSensitiveTools } : {})
+        ...(config.freeagentEnableSensitiveTools ? { FREEAGENT_ENABLE_SENSITIVE_TOOLS: config.freeagentEnableSensitiveTools } : {}),
+        ...(config.freeagentAttachmentsDir ? { FREEAGENT_ATTACHMENTS_DIR: config.freeagentAttachmentsDir } : {})
       }
     })
   exampleConfig:
