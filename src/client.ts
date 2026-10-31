@@ -31,6 +31,48 @@ function encodeFormBody(data: Record<string, string>): string {
   return new URLSearchParams(data).toString();
 }
 
+export interface Pagination {
+  page: number;
+  per_page: number;
+  total_count?: number;
+  next_page?: number;
+  last_page?: number;
+}
+
+function pageFromLink(link: string, rel: string): number | undefined {
+  for (const part of link.split(",")) {
+    const match = part.match(/<([^>]+)>\s*;\s*rel="?([a-z]+)"?/i);
+    if (match && match[2] === rel) {
+      const page = new URL(match[1]).searchParams.get("page");
+      return page ? Number(page) : undefined;
+    }
+  }
+  return undefined;
+}
+
+// FreeAgent signals further pages via the Link header and the total via
+// X-Total-Count; without surfacing these, list results look complete when
+// they are only the first page.
+export function parsePagination(
+  headers: Headers | undefined,
+  params: Record<string, string> | undefined
+): Pagination {
+  const pagination: Pagination = {
+    page: Number(params?.page ?? 1),
+    per_page: Number(params?.per_page ?? 25),
+  };
+  const total = headers?.get("x-total-count");
+  if (total) pagination.total_count = Number(total);
+  const link = headers?.get("link");
+  if (link) {
+    const next = pageFromLink(link, "next");
+    const last = pageFromLink(link, "last");
+    if (next !== undefined) pagination.next_page = next;
+    if (last !== undefined) pagination.last_page = last;
+  }
+  return pagination;
+}
+
 export class FreeAgentClient {
   private getAccessToken: () => Promise<string>;
   private baseUrl: string;
@@ -51,6 +93,20 @@ export class FreeAgentClient {
     params?: Record<string, string>
   ): Promise<T> {
     return this.request<T>("GET", path, undefined, undefined, params);
+  }
+
+  async getList<T = unknown>(
+    path: string,
+    params?: Record<string, string>
+  ): Promise<{ data: T; pagination: Pagination }> {
+    const { body, headers } = await this.send<T>(
+      "GET",
+      path,
+      undefined,
+      undefined,
+      params
+    );
+    return { data: body, pagination: parsePagination(headers, params) };
   }
 
   async postForm<T = unknown>(
@@ -93,6 +149,23 @@ export class FreeAgentClient {
     bodyType?: "form" | "json",
     params?: Record<string, string>
   ): Promise<T> {
+    const { body: responseBody } = await this.send<T>(
+      method,
+      path,
+      body,
+      bodyType,
+      params
+    );
+    return responseBody;
+  }
+
+  private async send<T = unknown>(
+    method: string,
+    path: string,
+    body?: unknown,
+    bodyType?: "form" | "json",
+    params?: Record<string, string>
+  ): Promise<{ body: T; headers: Headers | undefined }> {
     const base = this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
     const fullPath = path.startsWith("/") ? path.slice(1) : path;
 
@@ -101,9 +174,16 @@ export class FreeAgentClient {
     }
 
     const url = new URL(fullPath, base);
+    const baseUrl = new URL(base);
 
-    if (url.origin !== new URL(base).origin) {
+    if (url.origin !== baseUrl.origin) {
       throw new Error(`Resolved URL origin does not match base: ${url.origin}`);
+    }
+
+    // The raw-string check above misses encoded dot segments (`%2e%2e/`),
+    // which the URL parser still resolves as `..`. Check the resolved path.
+    if (!url.pathname.startsWith(baseUrl.pathname)) {
+      throw new Error(`Resolved URL escapes the API base path: ${url.pathname}`);
     }
 
     if (params) {
@@ -141,7 +221,9 @@ export class FreeAgentClient {
     }
 
     const text = await response.text();
-    if (!text) return {} as T;
-    return JSON.parse(text) as T;
+    return {
+      body: (text ? JSON.parse(text) : {}) as T,
+      headers: response.headers,
+    };
   }
 }

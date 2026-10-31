@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerBankingTools(server: McpServer, client: FreeAgentClient): void {
   // ── Bank Accounts ──────────────────────────────────────────────────
@@ -14,13 +14,14 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
         .enum(["standard_bank_accounts", "credit_card_accounts", "paypal_accounts"])
         .optional()
         .describe("Filter bank accounts by type"),
+      ...paginationParams,
     },
-    async ({ view }) => {
-      logToolCall("freeagent_list_bank_accounts", { view });
+    async ({ view, page, per_page }) => {
+      logToolCall("freeagent_list_bank_accounts", { view, page, per_page });
       try {
-        const params = buildParams({ view });
-        const data = await client.get("/bank_accounts", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, page, per_page });
+        const data = await client.getList("/bank_accounts", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }
@@ -160,13 +161,14 @@ export function registerBankingTools(server: McpServer, client: FreeAgentClient)
         .enum(["all", "unexplained", "explained", "manual", "imported", "marked_for_review"])
         .optional()
         .describe("Filter transactions by view"),
+      ...paginationParams,
     },
-    async ({ bank_account, from_date, to_date, updated_since, view }) => {
-      logToolCall("freeagent_list_bank_transactions", { bank_account, from_date, to_date, view });
+    async ({ bank_account, from_date, to_date, updated_since, view, page, per_page }) => {
+      logToolCall("freeagent_list_bank_transactions", { bank_account, from_date, to_date, view, page, per_page });
       try {
-        const params = buildParams({ bank_account, from_date, to_date, updated_since, view });
-        const data = await client.get("/bank_transactions", params);
-        return jsonResponse(data);
+        const params = buildParams({ bank_account, from_date, to_date, updated_since, view, page, per_page });
+        const data = await client.getList("/bank_transactions", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

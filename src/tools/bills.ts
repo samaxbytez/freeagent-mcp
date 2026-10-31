@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerBillTools(server: McpServer, client: FreeAgentClient): void {
@@ -38,13 +38,14 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .boolean()
         .optional()
         .describe("Whether to include nested bill items in the response"),
+      ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, contact, project, nested_bill_items }) => {
-      logToolCall("freeagent_list_bills", { view, from_date, to_date, updated_since, contact, project, nested_bill_items });
+    async ({ view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page }) => {
+      logToolCall("freeagent_list_bills", { view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page });
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, contact, project, nested_bill_items });
-        const data = await client.get("/bills", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page });
+        const data = await client.getList("/bills", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

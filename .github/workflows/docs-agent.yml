@@ -91,7 +91,14 @@ jobs:
         id: validate
         if: steps.gate.outputs.run == 'true'
         run: |
-          git add -A
+          # claude-code-action restores these config paths from the base branch
+          # (it treats the PR head as untrusted), so they can differ from HEAD
+          # without the agent touching them. Never stage them: they are not docs,
+          # and any agent edit to them is dropped rather than shipped.
+          git add -A -- . \
+            ':(exclude).claude' ':(exclude).mcp.json' ':(exclude).claude.json' \
+            ':(exclude).gitmodules' ':(exclude).ripgreprc' ':(exclude)CLAUDE.md' \
+            ':(exclude)CLAUDE.local.md' ':(exclude).husky'
           CHANGED=$(git diff --cached --name-only)
           if [ -z "$CHANGED" ]; then
             echo "No documentation changes needed."

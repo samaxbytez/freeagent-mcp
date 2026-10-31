@@ -6,6 +6,15 @@ import { registerInvoiceTools } from "./invoices.js";
 import { registerExpenseTools } from "./expenses.js";
 import { registerBankingTools } from "./banking.js";
 import { registerAccountingTools } from "./accounting.js";
+import { registerUserTools } from "./users.js";
+import { registerProjectTools } from "./projects.js";
+import { registerTaskTools } from "./tasks.js";
+import { registerTimeslipTools } from "./timeslips.js";
+import { registerEstimateTools } from "./estimates.js";
+import { registerBillTools } from "./bills.js";
+import { registerCreditNoteTools } from "./credit-notes.js";
+import { registerCategoryTools } from "./categories.js";
+import type { ZodTypeAny } from "zod";
 
 type ToolHandler = (...args: any[]) => any;
 
@@ -33,6 +42,7 @@ function createMockServer() {
 function createMockClient() {
   return {
     get: vi.fn().mockResolvedValue({ data: "mock" }),
+    getList: vi.fn().mockResolvedValue({ data: { data: "mock" }, pagination: { page: 1, per_page: 25 } }),
     postJson: vi.fn().mockResolvedValue({ data: "mock" }),
     putJson: vi.fn().mockResolvedValue({ data: "mock" }),
     postForm: vi.fn().mockResolvedValue({ data: "mock" }),
@@ -103,7 +113,7 @@ describe("registerContactTools", () => {
     const handler = tools.get("freeagent_list_contacts")!;
     await handler({ view: "active" });
 
-    expect(client.get).toHaveBeenCalledWith(
+    expect(client.getList).toHaveBeenCalledWith(
       "/contacts",
       expect.objectContaining({ view: "active" })
     );
@@ -214,7 +224,7 @@ describe("registerBankingTools", () => {
       bank_account: "https://api.freeagent.com/v2/bank_accounts/1",
     });
 
-    expect(client.get).toHaveBeenCalledWith(
+    expect(client.getList).toHaveBeenCalledWith(
       "/bank_transactions",
       expect.objectContaining({
         bank_account: "https://api.freeagent.com/v2/bank_accounts/1",
@@ -260,5 +270,66 @@ describe("registerAccountingTools", () => {
       "/accounting/balance_sheet",
       expect.objectContaining({ as_at_date: "2024-06-30" })
     );
+  });
+});
+
+describe("path parameters across all tools", () => {
+  // Every argument that ends up interpolated into a request path must reject
+  // traversal, including percent-encoded dot segments.
+  const groups = [
+    registerCompanyTools,
+    registerUserTools,
+    registerContactTools,
+    registerProjectTools,
+    registerTaskTools,
+    registerTimeslipTools,
+    registerInvoiceTools,
+    registerEstimateTools,
+    registerBillTools,
+    registerCreditNoteTools,
+    registerExpenseTools,
+    registerBankingTools,
+    registerCategoryTools,
+    registerAccountingTools,
+  ];
+
+  it("rejects traversal in every path-interpolated argument", async () => {
+    const schemas = new Map<string, Record<string, ZodTypeAny>>();
+    const handlers = new Map<string, ToolHandler>();
+    const server = {
+      registerTool: (name: string, config: { inputSchema?: Record<string, ZodTypeAny> }, cb: ToolHandler) => {
+        schemas.set(name, config.inputSchema ?? {});
+        handlers.set(name, cb);
+      },
+      tool: (...args: any[]) => {
+        const cb = typeof args[2] === "function" ? args[2] : args[3];
+        schemas.set(args[0], typeof args[2] === "function" ? {} : args[2]);
+        handlers.set(args[0], cb);
+      },
+    } as any;
+    const client = createMockClient();
+    for (const register of groups) register(server, client);
+
+    let pathParams = 0;
+    for (const [name, schema] of schemas) {
+      vi.clearAllMocks();
+      const args = Object.fromEntries(Object.keys(schema).map((k) => [k, `MARK${k}MARK`]));
+      await handlers.get(name)!(args);
+
+      const paths = Object.values(client)
+        .flatMap((fn) => (fn as ReturnType<typeof vi.fn>).mock.calls)
+        // Query-string values are URL-encoded by the handler or client, so only
+        // the path portion can be traversed.
+        .map((call) => String(call[0]).split("?")[0]);
+
+      for (const key of Object.keys(schema)) {
+        if (!paths.some((p) => p.includes(`MARK${key}MARK`))) continue;
+        pathParams++;
+        for (const attack of ["../users/me", "%2e%2e/users", "1?x=1", "1#x"]) {
+          expect(schema[key].safeParse(attack).success, `${name}.${key} accepted ${attack}`).toBe(false);
+        }
+      }
+    }
+    expect(pathParams).toBeGreaterThan(40);
   });
 });
