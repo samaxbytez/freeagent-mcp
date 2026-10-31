@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerEstimateTools(server: McpServer, client: FreeAgentClient): void {
   // List estimates
@@ -22,13 +22,14 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
         .describe("Include nested estimate items in the response"),
       contact: z.string().optional().describe("Filter by contact URL"),
       project: z.string().optional().describe("Filter by project URL"),
+      ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project }) => {
-      logToolCall("freeagent_list_estimates", { view, from_date, to_date, updated_since, nested_estimate_items, contact, project });
+    async ({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page }) => {
+      logToolCall("freeagent_list_estimates", { view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page });
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project });
-        const data = await client.get("/estimates", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page });
+        const data = await client.getList("/estimates", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

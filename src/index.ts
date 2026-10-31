@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { FreeAgentClient } from "./client.js";
 import { runAuthFlow, getValidAccessToken, getApiBase } from "./auth.js";
 import type { OAuthConfig } from "./auth.js";
+import { withToolPolicy } from "./policy.js";
 import { registerCompanyTools } from "./tools/company.js";
 import { registerUserTools } from "./tools/users.js";
 import { registerContactTools } from "./tools/contacts.js";
@@ -25,6 +26,8 @@ const FREEAGENT_CLIENT_ID = process.env.FREEAGENT_CLIENT_ID;
 const FREEAGENT_CLIENT_SECRET = process.env.FREEAGENT_CLIENT_SECRET;
 const FREEAGENT_SANDBOX = process.env.FREEAGENT_SANDBOX === "true";
 const FREEAGENT_BASE_URL = process.env.FREEAGENT_BASE_URL;
+const FREEAGENT_ENABLE_SENSITIVE_TOOLS =
+  process.env.FREEAGENT_ENABLE_SENSITIVE_TOOLS === "true";
 
 function buildOAuthConfig(): OAuthConfig | null {
   if (FREEAGENT_CLIENT_ID && FREEAGENT_CLIENT_SECRET) {
@@ -89,21 +92,24 @@ if (process.argv[2] === "auth") {
     name: "freeagent-mcp",
     version: "1.0.0",
   });
+  const tools = withToolPolicy(server, {
+    allowSensitive: FREEAGENT_ENABLE_SENSITIVE_TOOLS,
+  });
 
-  registerCompanyTools(server, client);
-  registerUserTools(server, client);
-  registerContactTools(server, client);
-  registerProjectTools(server, client);
-  registerTaskTools(server, client);
-  registerTimeslipTools(server, client);
-  registerInvoiceTools(server, client);
-  registerEstimateTools(server, client);
-  registerBillTools(server, client);
-  registerCreditNoteTools(server, client);
-  registerExpenseTools(server, client);
-  registerBankingTools(server, client);
-  registerCategoryTools(server, client);
-  registerAccountingTools(server, client);
+  registerCompanyTools(tools, client);
+  registerUserTools(tools, client);
+  registerContactTools(tools, client);
+  registerProjectTools(tools, client);
+  registerTaskTools(tools, client);
+  registerTimeslipTools(tools, client);
+  registerInvoiceTools(tools, client);
+  registerEstimateTools(tools, client);
+  registerBillTools(tools, client);
+  registerCreditNoteTools(tools, client);
+  registerExpenseTools(tools, client);
+  registerBankingTools(tools, client);
+  registerCategoryTools(tools, client);
+  registerAccountingTools(tools, client);
 
   async function main() {
     const transport = new StdioServerTransport();

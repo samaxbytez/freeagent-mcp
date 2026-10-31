@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerUserTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -12,13 +12,14 @@ export function registerUserTools(server: McpServer, client: FreeAgentClient): v
         .enum(["all", "staff", "active_staff", "advisors", "active_advisors"])
         .optional()
         .describe("Filter users by view type"),
+      ...paginationParams,
     },
-    async ({ view }) => {
-      logToolCall("freeagent_list_users", { view });
+    async ({ view, page, per_page }) => {
+      logToolCall("freeagent_list_users", { view, page, per_page });
       try {
-        const params = buildParams({ view });
-        const data = await client.get("/users", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, page, per_page });
+        const data = await client.getList("/users", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

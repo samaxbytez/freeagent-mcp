@@ -3,6 +3,7 @@ import {
   jsonResponse,
   errorResponse,
   buildParams,
+  listResponse,
   logToolCall,
   safeId,
   TOKEN_BUFFER_MS,
@@ -121,7 +122,20 @@ describe("safeId", () => {
 describe("constants", () => {
   it("has expected values", () => {
     expect(TOKEN_BUFFER_MS).toBe(60_000);
-    expect(MAX_PAGE_SIZE).toBe(50);
+    expect(MAX_PAGE_SIZE).toBe(100);
     expect(CACHE_TTL_MS).toBe(24 * 60 * 60 * 1000);
+  });
+});
+
+describe("listResponse", () => {
+  it("merges pagination into the resource object", () => {
+    const result = listResponse({
+      data: { invoices: [{ id: 1 }] },
+      pagination: { page: 1, per_page: 25, next_page: 2 },
+    });
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      invoices: [{ id: 1 }],
+      pagination: { page: 1, per_page: 25, next_page: 2 },
+    });
   });
 });
