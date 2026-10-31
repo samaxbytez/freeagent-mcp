@@ -94,7 +94,7 @@ from source: [docs/configuration.md](docs/configuration.md).
 | --- | --- | --- |
 | Company | 3 | Company details, business categories, tax timeline |
 | Users | 6 | List and look up users; create, update, delete (sensitive) |
-| Contacts | 5 | Clients and suppliers |
+| Contacts | 5 | Clients and suppliers (changing an email is sensitive) |
 | Projects, Tasks | 5, 5 | Projects and their billable tasks |
 | Timeslips | 7 | Time tracking, with a start/stop timer |
 | Invoices | 9 | Create, update, mark sent, draft or cancelled; email (sensitive) |
@@ -102,7 +102,7 @@ from source: [docs/configuration.md](docs/configuration.md).
 | Bills | 5 | Supplier bills, with a receipt attached |
 | Credit notes | 5 | Credit notes |
 | Expenses | 5 | Expenses, with a receipt attached |
-| Banking | 7 | Bank accounts and their transactions |
+| Banking | 7 | Bank accounts and their transactions; create (sensitive) |
 | Categories | 2 | The chart of accounts |
 | Accounting | 5 | Profit and loss, balance sheet, trial balance |
 
@@ -115,7 +115,7 @@ endpoint and example prompts: [docs/tools.md](docs/tools.md).
 | --- | --- | --- |
 | `FREEAGENT_CLIENT_ID`, `FREEAGENT_CLIENT_SECRET` | Yes | Your app's OAuth2 credentials |
 | `FREEAGENT_SANDBOX` | No | `true` to use the FreeAgent sandbox |
-| `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | `true` to turn on user management and invoice emailing |
+| `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | `true` to turn on user management, invoice emailing, adding bank accounts and changing a contact's email |
 | `FREEAGENT_ATTACHMENTS_DIR` | To attach receipts | The one folder `attachment_path` may read from |
 | `FREEAGENT_ACCESS_TOKEN`, `FREEAGENT_BASE_URL` | No | Legacy direct token; API base override |
 

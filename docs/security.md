@@ -11,6 +11,12 @@ Text that FreeAgent returns — bank transaction references, contact names, comm
 
 - `freeagent_create_user`, `freeagent_update_user`, `freeagent_delete_user`
 - `freeagent_send_invoice_email`
+- `freeagent_create_bank_account`: a new account could carry someone else's
+  sort code or IBAN and be made the primary account
+
+And one field: `freeagent_update_contact` has no `email` argument unless they're
+on, because changing a customer's email would redirect FreeAgent's own invoice
+and reminder emails. New contacts can still be given an email.
 
 Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`) so clients can ask for confirmation before writes and deletes.
 

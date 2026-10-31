@@ -48,8 +48,9 @@ and test following this pattern.
   every argument interpolated into a request path.
 - **List tools** → spread `paginationParams` into the schema and return
   `listResponse(await client.getList(...))` so results carry `pagination`.
-- **Sensitive tools** (can grant account access or send data out) → add the name
-  to `SENSITIVE_TOOLS` in `policy.ts`.
+- **Sensitive tools** (can grant account access, send data out, or redirect money
+  or mail) → add the name to `SENSITIVE_TOOLS` in `policy.ts`; for a single risky
+  field of an otherwise ordinary tool, use `SENSITIVE_FIELDS`.
 - **`client.ts`** rejects absolute URLs / `../` and verifies the resolved URL's
   origin and path stay within the API base (catches encoded `%2e%2e/`) — never
   weaken this; it prevents the bearer token being sent off-origin.
