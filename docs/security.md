@@ -70,6 +70,15 @@ Pre-signed download links (`content_src` and its variants) are removed from
 everything the tools return, so a receipt's link can't be passed on by an
 injected instruction. The attachment's file name and type are kept.
 
+## Supply chain
+
+The npm package has no dependencies: the server, the MCP SDK and zod are bundled
+into one file at build time. Installing it with `npx` downloads only that file,
+so a compromised release of any upstream package can't reach your machine
+through this server until it has been reviewed, bundled and released here.
+Releases are built with install scripts disabled, published with npm provenance,
+and only after a maintainer approves the publish in GitHub.
+
 ## Tokens
 
 OAuth tokens are stored in `~/.freeagent-mcp/tokens.json` (sandbox:

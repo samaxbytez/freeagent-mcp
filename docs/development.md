@@ -10,8 +10,14 @@ npm test               # vitest, no network: the client is mocked
 npm run test:watch
 npm run lint
 npm run format
-npm run build          # tsc into build/
+npm run build          # bundle into build/index.js (scripts/bundle.mjs)
 ```
+
+The published package has **no runtime dependencies**: `npm run build` bundles the
+server, the MCP SDK and zod into one file with esbuild, plus
+`build/THIRD_PARTY_LICENSES.txt` for the bundled packages. So `npx` users run
+exactly the code that was tested. The SDK and zod are therefore devDependencies;
+a Dependabot update to either only reaches users in the next release.
 
 CI runs lint, type-check, tests and build on Node 24 for every pull request
 (`test (24)`, required on `main`).
