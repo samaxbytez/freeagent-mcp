@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [24]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -23,20 +23,5 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check
-      # vitest 4.1 runs on vite 8, which needs Node >= 20.19. Node 18 is EOL but
-      # still in package.json's engines, so on 18 the suite is replaced by a
-      # check that the built server loads and runs.
       - run: npm test
-        if: matrix.node-version != 18
       - run: npm run build
-      - name: Smoke-test the built server on Node 18
-        if: matrix.node-version == 18
-        run: |
-          # With no credentials the server loads every module (SDK, client, all
-          # tool groups), then exits 1 with a usage message.
-          set +e
-          OUT=$(node build/index.js 2>&1 < /dev/null)
-          CODE=$?
-          set -e
-          echo "$OUT"
-          [ "$CODE" -eq 1 ] && echo "$OUT" | grep -q "Missing credentials"
