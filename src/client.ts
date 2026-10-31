@@ -1,4 +1,5 @@
 const DEFAULT_BASE_URL = "https://api.freeagent.com/v2";
+const REQUEST_TIMEOUT_MS = 30_000;
 
 export class FreeAgentApiError extends Error {
   public readonly status: number;
@@ -12,23 +13,35 @@ export class FreeAgentApiError extends Error {
   }
 }
 
-function parseApiError(status: number, body: string): FreeAgentApiError {
+function parseApiError(response: Response, body: string): FreeAgentApiError {
+  const { status } = response;
+  if (status === 429) {
+    const retryAfter = response.headers?.get("retry-after");
+    return new FreeAgentApiError(
+      status,
+      "rate_limited",
+      `FreeAgent rate limit reached${retryAfter ? `; retry after ${retryAfter} seconds` : ""}`
+    );
+  }
   try {
     const parsed = JSON.parse(body);
     const code = parsed?.error ?? parsed?.code ?? "unknown";
+    // Validation errors come as {errors: {error: {message}}} for one problem and
+    // {errors: [{message}, ...]} for several; keep every message so the model
+    // can correct its call.
+    const listed = Array.isArray(parsed?.errors)
+      ? parsed.errors.map((e: { message?: string }) => e?.message).filter(Boolean).join("; ")
+      : undefined;
     const message =
       parsed?.message ??
       parsed?.error_description ??
       parsed?.errors?.error?.message ??
-      `HTTP ${status}`;
+      (listed || `HTTP ${status}`);
     return new FreeAgentApiError(status, code, message);
   } catch {
+    // Not JSON (e.g. a proxy's HTML page): don't echo it to the model.
     return new FreeAgentApiError(status, "unknown", `HTTP ${status} error`);
   }
-}
-
-function encodeFormBody(data: Record<string, string>): string {
-  return new URLSearchParams(data).toString();
 }
 
 export interface Pagination {
@@ -73,9 +86,14 @@ export function parsePagination(
   return pagination;
 }
 
+interface SendOptions {
+  body?: unknown;
+  params?: Record<string, string>;
+}
+
 export class FreeAgentClient {
   private getAccessToken: () => Promise<string>;
-  private baseUrl: string;
+  private base: URL;
 
   constructor(
     tokenOrProvider: string | (() => Promise<string>),
@@ -85,104 +103,60 @@ export class FreeAgentClient {
       typeof tokenOrProvider === "function"
         ? tokenOrProvider
         : async () => tokenOrProvider;
-    this.baseUrl = baseUrl || DEFAULT_BASE_URL;
+    const base = baseUrl || DEFAULT_BASE_URL;
+    this.base = new URL(base.endsWith("/") ? base : base + "/");
   }
 
   async get<T = unknown>(
     path: string,
     params?: Record<string, string>
   ): Promise<T> {
-    return this.request<T>("GET", path, undefined, undefined, params);
+    return (await this.send<T>("GET", path, { params })).body;
   }
 
   async getList<T = unknown>(
     path: string,
     params?: Record<string, string>
   ): Promise<{ data: T; pagination: Pagination }> {
-    const { body, headers } = await this.send<T>(
-      "GET",
-      path,
-      undefined,
-      undefined,
-      params
-    );
+    const { body, headers } = await this.send<T>("GET", path, { params });
     return { data: body, pagination: parsePagination(headers, params) };
   }
 
-  async postForm<T = unknown>(
-    path: string,
-    body?: Record<string, string>
-  ): Promise<T> {
-    return this.request<T>("POST", path, body, "form");
-  }
-
   async postJson<T = unknown>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("POST", path, body, "json");
-  }
-
-  async putForm<T = unknown>(
-    path: string,
-    body?: Record<string, string>
-  ): Promise<T> {
-    return this.request<T>("PUT", path, body, "form");
+    return (await this.send<T>("POST", path, { body })).body;
   }
 
   async putJson<T = unknown>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("PUT", path, body, "json");
-  }
-
-  async patchJson<T = unknown>(path: string, body: unknown): Promise<T> {
-    return this.request<T>("PATCH", path, body, "json");
+    return (await this.send<T>("PUT", path, { body })).body;
   }
 
   async deleteReq<T = unknown>(
     path: string,
     params?: Record<string, string>
   ): Promise<T> {
-    return this.request<T>("DELETE", path, undefined, undefined, params);
-  }
-
-  private async request<T = unknown>(
-    method: string,
-    path: string,
-    body?: unknown,
-    bodyType?: "form" | "json",
-    params?: Record<string, string>
-  ): Promise<T> {
-    const { body: responseBody } = await this.send<T>(
-      method,
-      path,
-      body,
-      bodyType,
-      params
-    );
-    return responseBody;
+    return (await this.send<T>("DELETE", path, { params })).body;
   }
 
   private async send<T = unknown>(
     method: string,
     path: string,
-    body?: unknown,
-    bodyType?: "form" | "json",
-    params?: Record<string, string>
+    { body, params }: SendOptions = {}
   ): Promise<{ body: T; headers: Headers | undefined }> {
-    const base = this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
     const fullPath = path.startsWith("/") ? path.slice(1) : path;
 
     if (/\.\.[\\/]/.test(fullPath) || /^[a-z]+:\/\//i.test(fullPath)) {
       throw new Error(`Unsafe API path rejected: ${fullPath}`);
     }
 
-    const url = new URL(fullPath, base);
-    const baseUrl = new URL(base);
+    const url = new URL(fullPath, this.base);
 
-    if (url.origin !== baseUrl.origin) {
+    if (url.origin !== this.base.origin) {
       throw new Error(`Resolved URL origin does not match base: ${url.origin}`);
     }
 
     // The raw-string check above misses encoded dot segments (`%2e%2e/`),
     // which the URL parser still resolves as `..`. Check the resolved path.
-    if (!url.pathname.startsWith(baseUrl.pathname)) {
+    if (!url.pathname.startsWith(this.base.pathname)) {
       throw new Error(`Resolved URL escapes the API base path: ${url.pathname}`);
     }
 
@@ -199,25 +173,18 @@ export class FreeAgentClient {
       "User-Agent": "freeagent-mcp-server",
     };
 
-    let encodedBody: string | undefined;
-
-    if (body && bodyType === "json") {
-      headers["Content-Type"] = "application/json";
-      encodedBody = JSON.stringify(body);
-    } else if (body && bodyType === "form") {
-      headers["Content-Type"] = "application/x-www-form-urlencoded";
-      encodedBody = encodeFormBody(body as Record<string, string>);
-    }
+    if (body) headers["Content-Type"] = "application/json";
 
     const response = await fetch(url.toString(), {
       method,
       headers,
-      body: encodedBody,
+      body: body ? JSON.stringify(body) : undefined,
+      // A stalled connection would otherwise leave the tool call pending forever.
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      throw parseApiError(response.status, errorBody);
+      throw parseApiError(response, await response.text());
     }
 
     const text = await response.text();

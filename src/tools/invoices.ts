@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerInvoiceTools(server: McpServer, client: FreeAgentClient): void {
   // List invoices
@@ -17,10 +17,10 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
       nested_invoice_items: z.boolean().optional().describe("Whether to include nested invoice items in the response"),
       ...paginationParams,
     },
-    async ({ view, sort, contact, project, updated_since, nested_invoice_items, page, per_page }) => {
-      logToolCall("freeagent_list_invoices", { view, sort, contact, project, updated_since, nested_invoice_items, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_invoices", args);
       try {
-        const params = buildParams({ view, sort, contact, project, updated_since, nested_invoice_items, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/invoices", params);
         return listResponse(data);
       } catch (error) {
@@ -66,10 +66,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     async ({ invoice_items, ...rest }) => {
       logToolCall("freeagent_create_invoice", { ...rest, invoice_items });
       try {
-        const invoice: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rest)) {
-          if (v !== undefined) invoice[k] = v;
-        }
+        const invoice = definedOnly(rest);
         if (invoice_items) {
           invoice.invoice_items = JSON.parse(invoice_items);
         }
@@ -96,10 +93,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     async ({ invoice_id, ...rest }) => {
       logToolCall("freeagent_update_invoice", { invoice_id, ...rest });
       try {
-        const invoice: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rest)) {
-          if (v !== undefined) invoice[k] = v;
-        }
+        const invoice = definedOnly(rest);
         const data = await client.putJson(`/invoices/${invoice_id}`, { invoice });
         return jsonResponse(data);
       } catch (error) {
@@ -194,10 +188,7 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
     async ({ invoice_id, to, from_email, subject, body }) => {
       logToolCall("freeagent_send_invoice_email", { invoice_id, to, from_email, subject });
       try {
-        const emailBody: Record<string, unknown> = { to };
-        if (from_email !== undefined) emailBody.from = from_email;
-        if (subject !== undefined) emailBody.subject = subject;
-        if (body !== undefined) emailBody.body = body;
+        const emailBody = definedOnly({ to, from: from_email, subject, body });
         const data = await client.postJson(`/invoices/${invoice_id}/send_email`, { invoice: { email: emailBody } });
         return jsonResponse(data);
       } catch (error) {

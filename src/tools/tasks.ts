@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerTaskTools(server: McpServer, client: FreeAgentClient): void {
   // List tasks
@@ -28,10 +28,10 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
         ...paginationParams,
       },
     },
-    async ({ view, sort, project, updated_since, page, per_page }) => {
-      logToolCall("freeagent_list_tasks", { view, sort, project, updated_since, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_tasks", args);
       try {
-        const params = buildParams({ view, sort, project, updated_since, page, per_page });
+        const params = buildParams(args);
         const response = await client.getList("/tasks", params);
         return listResponse(response);
       } catch (error) {
@@ -95,10 +95,7 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
       logToolCall("freeagent_create_task", { project, name, status });
       try {
         const body: Record<string, unknown> = { name };
-        if (is_billable !== undefined) body.is_billable = is_billable;
-        if (billing_rate !== undefined) body.billing_rate = billing_rate;
-        if (billing_period !== undefined) body.billing_period = billing_period;
-        if (status !== undefined) body.status = status;
+        Object.assign(body, definedOnly({ is_billable, billing_rate, billing_period, status }));
 
         const response = await client.postJson(
           `/tasks?project=${encodeURIComponent(project)}`,
@@ -141,12 +138,7 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
     async ({ task_id, name, is_billable, billing_rate, billing_period, status }) => {
       logToolCall("freeagent_update_task", { task_id, name, status });
       try {
-        const body: Record<string, unknown> = {};
-        if (name !== undefined) body.name = name;
-        if (is_billable !== undefined) body.is_billable = is_billable;
-        if (billing_rate !== undefined) body.billing_rate = billing_rate;
-        if (billing_period !== undefined) body.billing_period = billing_period;
-        if (status !== undefined) body.status = status;
+        const body = definedOnly({ name, is_billable, billing_rate, billing_period, status });
 
         const response = await client.putJson(`/tasks/${task_id}`, { task: body });
         return jsonResponse(response);

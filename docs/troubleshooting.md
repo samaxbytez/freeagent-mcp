@@ -4,7 +4,7 @@
 Set `FREEAGENT_CLIENT_ID` and `FREEAGENT_CLIENT_SECRET` environment variables, then run `npx freeagent-mcp-server auth` to authenticate.
 
 **"No stored tokens found"**
-You need to complete the one-time auth flow first: `npx freeagent-mcp-server auth`
+You need to complete the one-time auth flow first: `npx freeagent-mcp-server auth`. For the sandbox, run it with `FREEAGENT_SANDBOX=true`: sandbox tokens are kept in their own file.
 
 **Authentication times out**
 If the automatic redirect doesn't work, copy the full URL from your browser's address bar after approving and paste it into the terminal. Pasting needs an interactive terminal, so run `auth` in a normal terminal tab. The sign-in gives up after 2 minutes; run it again if you were still logging in. Ensure your FreeAgent app's redirect URI is set to `http://localhost:3456/callback`.

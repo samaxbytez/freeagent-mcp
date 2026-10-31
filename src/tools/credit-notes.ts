@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerCreditNoteTools(server: McpServer, client: FreeAgentClient): void {
   // List credit notes
@@ -35,10 +35,10 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
         .describe("Whether to include nested credit note items in the response"),
       ...paginationParams,
     },
-    async ({ view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page }) => {
-      logToolCall("freeagent_list_credit_notes", { view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_credit_notes", args);
       try {
-        const params = buildParams({ view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/credit_notes", params);
         return listResponse(data);
       } catch (error) {
@@ -93,9 +93,7 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
       logToolCall("freeagent_create_credit_note", { contact, dated_on, currency });
       try {
         const credit_note: Record<string, unknown> = { contact, dated_on };
-        if (payment_terms_in_days !== undefined) credit_note.payment_terms_in_days = payment_terms_in_days;
-        if (currency !== undefined) credit_note.currency = currency;
-        if (comments !== undefined) credit_note.comments = comments;
+        Object.assign(credit_note, definedOnly({ payment_terms_in_days, currency, comments }));
         if (credit_note_items !== undefined) credit_note.credit_note_items = JSON.parse(credit_note_items);
 
         const data = await client.postJson("/credit_notes", { credit_note });
@@ -128,10 +126,7 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
     async ({ credit_note_id, dated_on, payment_terms_in_days, comments }) => {
       logToolCall("freeagent_update_credit_note", { credit_note_id });
       try {
-        const credit_note: Record<string, unknown> = {};
-        if (dated_on !== undefined) credit_note.dated_on = dated_on;
-        if (payment_terms_in_days !== undefined) credit_note.payment_terms_in_days = payment_terms_in_days;
-        if (comments !== undefined) credit_note.comments = comments;
+        const credit_note = definedOnly({ dated_on, payment_terms_in_days, comments });
 
         const data = await client.putJson(`/credit_notes/${credit_note_id}`, { credit_note });
         return jsonResponse(data);

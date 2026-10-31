@@ -13,7 +13,7 @@ TypeScript, ESM, published to npm, driven over stdio.
 ```
 src/
 ├── index.ts      # Entry point: builds the McpServer, wires the client, registers every tool group
-├── auth.ts       # OAuth2 flow, token storage (~/.freeagent-mcp/tokens.json) and refresh
+├── auth.ts       # OAuth2 flow, token storage (~/.freeagent-mcp/tokens.json; tokens.sandbox.json) and refresh
 ├── client.ts     # FreeAgentClient — HTTP wrapper around fetch (get/getList/postJson/putJson/deleteReq)
 ├── policy.ts     # withToolPolicy: MCP annotations for every tool, sensitive tools gated behind FREEAGENT_ENABLE_SENSITIVE_TOOLS
 ├── attachment.ts # readAttachment: attachment_path, the only local file read, confined to FREEAGENT_ATTACHMENTS_DIR

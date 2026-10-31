@@ -2,7 +2,6 @@ import { z } from "zod";
 
 export const TOKEN_BUFFER_MS = 60_000;
 export const MAX_PAGE_SIZE = 100;
-export const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 export const safeId = z.string().regex(/^[a-zA-Z0-9_-]+$/, "ID must contain only alphanumeric characters, hyphens, and underscores");
 
@@ -19,7 +18,8 @@ export const paginationParams = {
 
 export function jsonResponse(data: unknown) {
   return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
+    // Compact: indentation adds 20-40% to large payloads, all of it model tokens.
+    content: [{ type: "text" as const, text: JSON.stringify(data) }],
   };
 }
 
@@ -37,6 +37,11 @@ export function errorResponse(error: unknown) {
     content: [{ type: "text" as const, text: `Error: ${msg}` }],
     isError: true,
   };
+}
+
+/** Copies obj without its undefined values, for request bodies built from optional args. */
+export function definedOnly(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined));
 }
 
 export function buildParams(
@@ -60,11 +65,9 @@ export function logToolCall(tool: string, params?: Record<string, unknown>) {
       // path truncated to 20 chars ("C:\Users\ChrisCoomb...") would defeat the point.
       // It is a filename, not a secret. Exempt only this key, not a whole naming class,
       // and still cap it so an oversized argument cannot flood the log.
-      const limit = k === "attachment_path" ? 500 : 100;
+      const [max, keep] = k === "attachment_path" ? [500, 500] : [100, 20];
       sanitized[k] =
-        typeof v === "string" && v.length > limit
-          ? v.slice(0, k === "attachment_path" ? limit : 20) + "..."
-          : v;
+        typeof v === "string" && v.length > max ? v.slice(0, keep) + "..." : v;
     }
   }
   console.error(JSON.stringify(sanitized));

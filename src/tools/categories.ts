@@ -13,10 +13,10 @@ export function registerCategoryTools(server: McpServer, client: FreeAgentClient
         .optional()
         .describe("Whether to include sub-accounts in the response"),
     },
-    async ({ sub_accounts }) => {
-      logToolCall("freeagent_list_categories", { sub_accounts });
+    async (args) => {
+      logToolCall("freeagent_list_categories", args);
       try {
-        const params = buildParams({ sub_accounts });
+        const params = buildParams(args);
         const data = await client.get("/categories", params);
         return jsonResponse(data);
       } catch (error) {
