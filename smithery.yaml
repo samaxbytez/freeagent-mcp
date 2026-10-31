@@ -18,6 +18,9 @@ startCommand:
       freeagentAccessToken:
         type: string
         description: Legacy - direct OAuth2 access token (skips stored token flow)
+      freeagentEnableSensitiveTools:
+        type: string
+        description: Set to "true" to enable user-management and invoice-email tools (off by default)
   commandFunction: |
     (config) => ({
       command: 'npx',
@@ -26,7 +29,8 @@ startCommand:
         FREEAGENT_CLIENT_ID: config.freeagentClientId,
         FREEAGENT_CLIENT_SECRET: config.freeagentClientSecret,
         ...(config.freeagentSandbox ? { FREEAGENT_SANDBOX: config.freeagentSandbox } : {}),
-        ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {})
+        ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {}),
+        ...(config.freeagentEnableSensitiveTools ? { FREEAGENT_ENABLE_SENSITIVE_TOOLS: config.freeagentEnableSensitiveTools } : {})
       }
     })
   exampleConfig:

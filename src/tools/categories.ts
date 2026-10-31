@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
 
 export function registerCategoryTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -29,7 +29,7 @@ export function registerCategoryTools(server: McpServer, client: FreeAgentClient
     "freeagent_get_category",
     "Get a single category from FreeAgent by nominal code",
     {
-      nominal_code: z.string().describe("The nominal code of the category to retrieve"),
+      nominal_code: safeId.describe("The nominal code of the category to retrieve"),
     },
     async ({ nominal_code }) => {
       logToolCall("freeagent_get_category", { nominal_code });

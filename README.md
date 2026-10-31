@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/freeagent-mcp-server.svg)](https://www.npmjs.com/package/freeagent-mcp-server)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provides 76 tools covering invoices, expenses, contacts, projects, timeslips, banking, bills, estimates, credit notes, accounting reports, and more.
+MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provides 76 tools covering invoices, expenses, contacts, projects, timeslips, banking, bills, estimates, credit notes, accounting reports, and more. Four sensitive tools (user management and invoice emailing) are off by default — see [Sensitive tools](#sensitive-tools).
 
 ## Features
 
@@ -99,8 +99,22 @@ npm start
 | `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
+| `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | Set to `true` to register the [sensitive tools](#sensitive-tools) |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
+
+### Sensitive tools
+
+Text that FreeAgent returns — bank transaction references, contact names, comments — can be written by third parties, so it can carry instructions aimed at the model (indirect prompt injection). Tools that could hand account access or company data to someone outside the account are therefore not registered unless `FREEAGENT_ENABLE_SENSITIVE_TOOLS=true`:
+
+- `freeagent_create_user`, `freeagent_update_user`, `freeagent_delete_user`
+- `freeagent_send_invoice_email`
+
+Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`) so clients can ask for confirmation before writes and deletes.
+
+### Pagination
+
+List tools accept `page` and `per_page` (default 25, max 100). Responses include a `pagination` object with `page`, `per_page`, `total_count`, and — when more results exist — `next_page` and `last_page`.
 
 ### Claude Desktop / Cowork
 
@@ -150,6 +164,7 @@ freeagent-mcp/
 │   ├── index.ts              # Entry point, server setup
 │   ├── auth.ts               # OAuth2 flow, token storage & refresh
 │   ├── client.ts             # FreeAgent API HTTP client
+│   ├── policy.ts             # Tool annotations & sensitive-tool gating
 │   ├── utils.ts              # Shared utilities (responses, logging)
 │   ├── auth.test.ts          # Auth module tests
 │   ├── client.test.ts        # Client tests

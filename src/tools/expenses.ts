@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerExpenseTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -28,13 +28,14 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .string()
         .optional()
         .describe("Filter by project URL"),
+      ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, project }) => {
-      logToolCall("freeagent_list_expenses", { view, from_date, to_date, updated_since, project });
+    async ({ view, from_date, to_date, updated_since, project, page, per_page }) => {
+      logToolCall("freeagent_list_expenses", { view, from_date, to_date, updated_since, project, page, per_page });
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, project });
-        const data = await client.get("/expenses", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, from_date, to_date, updated_since, project, page, per_page });
+        const data = await client.getList("/expenses", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

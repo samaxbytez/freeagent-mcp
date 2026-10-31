@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerCreditNoteTools(server: McpServer, client: FreeAgentClient): void {
   // List credit notes
@@ -33,13 +33,14 @@ export function registerCreditNoteTools(server: McpServer, client: FreeAgentClie
         .boolean()
         .optional()
         .describe("Whether to include nested credit note items in the response"),
+      ...paginationParams,
     },
-    async ({ view, updated_since, sort, contact, project, nested_credit_note_items }) => {
-      logToolCall("freeagent_list_credit_notes", { view, updated_since, sort, contact, project, nested_credit_note_items });
+    async ({ view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page }) => {
+      logToolCall("freeagent_list_credit_notes", { view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page });
       try {
-        const params = buildParams({ view, updated_since, sort, contact, project, nested_credit_note_items });
-        const data = await client.get("/credit_notes", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, updated_since, sort, contact, project, nested_credit_note_items, page, per_page });
+        const data = await client.getList("/credit_notes", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

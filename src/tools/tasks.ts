@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerTaskTools(server: McpServer, client: FreeAgentClient): void {
   // List tasks
@@ -25,14 +25,15 @@ export function registerTaskTools(server: McpServer, client: FreeAgentClient): v
           .string()
           .optional()
           .describe("Only return tasks updated since this date (ISO 8601)"),
+        ...paginationParams,
       },
     },
-    async ({ view, sort, project, updated_since }) => {
-      logToolCall("freeagent_list_tasks", { view, sort, project, updated_since });
+    async ({ view, sort, project, updated_since, page, per_page }) => {
+      logToolCall("freeagent_list_tasks", { view, sort, project, updated_since, page, per_page });
       try {
-        const params = buildParams({ view, sort, project, updated_since });
-        const response = await client.get("/tasks", params);
-        return jsonResponse(response);
+        const params = buildParams({ view, sort, project, updated_since, page, per_page });
+        const response = await client.getList("/tasks", params);
+        return listResponse(response);
       } catch (error) {
         return errorResponse(error);
       }
