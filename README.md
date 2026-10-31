@@ -193,7 +193,7 @@ same request** as the record itself, so an expense is never created without its 
 }
 ```
 
-PDF, PNG and JPEG only, 5MB maximum, which is what the FreeAgent API itself accepts.
+PDF, PNG, JPEG and GIF only, 5MB maximum, which is what the FreeAgent API itself accepts.
 
 ### `FREEAGENT_ATTACHMENTS_DIR` is required
 
@@ -213,9 +213,10 @@ and `freeagent_get_expense` returns it to the model. Scoping the read to one dir
 is what breaks that chain.
 
 Also enforced: symlinks and `..` are resolved before anything is judged, so a `.pdf`
-symlink pointing at a private key is rejected rather than uploaded; the extension
-allowlist gates the file checks as well as the read, so error messages cannot be used to
-probe what exists elsewhere; and only regular files are read.
+symlink pointing at a private key is rejected rather than uploaded; the root and
+extension are checked against the path as given before the filesystem is touched, so
+error messages cannot be used to probe what exists outside the root or which
+non-attachable files exist inside it; and only regular files are read.
 
 ## Tools Reference
 

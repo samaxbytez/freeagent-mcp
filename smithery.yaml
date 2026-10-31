@@ -18,6 +18,9 @@ startCommand:
       freeagentAccessToken:
         type: string
         description: Legacy - direct OAuth2 access token (skips stored token flow)
+      freeagentAttachmentsDir:
+        type: string
+        description: Directory attachment_path may read receipts from. Required to attach files to expenses and bills.
   commandFunction: |
     (config) => ({
       command: 'npx',
@@ -26,7 +29,8 @@ startCommand:
         FREEAGENT_CLIENT_ID: config.freeagentClientId,
         FREEAGENT_CLIENT_SECRET: config.freeagentClientSecret,
         ...(config.freeagentSandbox ? { FREEAGENT_SANDBOX: config.freeagentSandbox } : {}),
-        ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {})
+        ...(config.freeagentAccessToken ? { FREEAGENT_ACCESS_TOKEN: config.freeagentAccessToken } : {}),
+        ...(config.freeagentAttachmentsDir ? { FREEAGENT_ATTACHMENTS_DIR: config.freeagentAttachmentsDir } : {})
       }
     })
   exampleConfig:
