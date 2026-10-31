@@ -19,7 +19,7 @@ npm install -g freeagent-mcp-server
 freeagent-mcp
 ```
 
-To pin a specific version, append `@<version>` (e.g. `npm install -g freeagent-mcp-server@2.0.1`).
+To pin a specific version, append `@<version>` (e.g. `npm install -g freeagent-mcp-server@3.0.0`).
 
 Or build from source:
 

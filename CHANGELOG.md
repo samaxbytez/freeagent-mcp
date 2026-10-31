@@ -5,6 +5,41 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-10-31
+
+### Breaking
+
+- **Two more actions need `FREEAGENT_ENABLE_SENSITIVE_TOOLS=true`:** creating a
+  bank account (`freeagent_create_bank_account`), and changing an existing
+  contact's email (the `email` field of `freeagent_update_contact`). Text in
+  FreeAgent data written by someone else could otherwise get the model to add a
+  bank account with their payment details, or redirect a customer's invoice
+  emails. New contacts can still be given an email.
+
+### Security
+
+- **Receipt attachments:** a hard link inside `FREEAGENT_ATTACHMENTS_DIR` to a
+  file elsewhere could be uploaded; multiply-linked files are now refused. The
+  file is opened once and checked through that handle, so it can't be swapped
+  between the checks and the read, and a folder containing your home directory
+  is refused as the attachments folder.
+- **Pre-signed download links** for receipts (`content_src`) are removed from
+  everything the tools return, so they can't be passed on.
+- **Tokens** are written atomically and never through a symlink; token-endpoint
+  errors pass on only the OAuth error fields.
+- **No runtime dependencies:** the package is now a single bundled file with the
+  MCP SDK and zod inside, so `npx` installs one package instead of about 60, and
+  you run the dependency versions that were tested. zod is updated to 4, clearing
+  its last published advisory.
+- **Publishing** now needs a maintainer's approval in GitHub, runs no dependency
+  install scripts, and keeps no git credentials in the job that can publish.
+
+### Changed
+
+- Setup instructions for Codex CLI, Cursor, VS Code, Windsurf and Gemini CLI,
+  and why ChatGPT and Grok can't connect to a local server yet.
+- A malformed `Link` header no longer fails a list call.
+
 ## [2.0.1] - 2026-10-31
 
 ### Fixed
@@ -100,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default to the production FreeAgent API and add an auth paste fallback.
 - Built-in OAuth2 flow with automatic token refresh.
 
+[3.0.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/samaxbytez/freeagent-mcp/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v1.3.0...v2.0.0
 [1.3.0]: https://github.com/samaxbytez/freeagent-mcp/releases/tag/v1.3.0
