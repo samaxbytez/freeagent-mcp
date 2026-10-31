@@ -61,7 +61,7 @@ See the [Configuration](#configuration) section below.
 
 ## Installation
 
-> **Requirements:** Node.js 18 or later.
+> **Requirements:** Node.js 24 or later.
 
 ### Using npx (recommended)
 

@@ -69,16 +69,19 @@ and test following this pattern.
   open a PR for everything, including config.
 - **Tests must pass**: `npm test`, plus `npm run lint` and `npm run type-check`.
 
-## Releasing (automated — never bump or publish by hand)
+## Releasing (never publish or tag by hand)
 
-Conventional commits drive it. On merge to `main`, `release-agent.yml` opens a
-release PR (version bump + changelog); merging that PR triggers `publish.yml`,
-which publishes to npm via OIDC and creates the tag + GitHub Release. Full detail
-in [RELEASING.md](RELEASING.md).
+Conventional commits drive it. Run `/release` to open the release PR (version
+bump + changelog); merging that PR triggers `publish.yml`, which publishes to npm
+via OIDC and creates the tag + GitHub Release. Full detail in
+[RELEASING.md](RELEASING.md).
+
+README tool counts and tables are kept in sync by hand: run `/sync-tool-count`
+after adding, removing or renaming a tool.
 
 ## Don'ts
 
 - Don't run `npm publish` or create tags manually.
-- Don't commit secrets (`ANTHROPIC_API_KEY`, `RELEASE_PAT` live in repo secrets).
+- Don't commit secrets or tokens.
 - Don't relax `safeId` / the client origin check / `execFile` usage.
 - Don't make `FREEAGENT_ATTACHMENTS_DIR` optional or default it to a broad path.
