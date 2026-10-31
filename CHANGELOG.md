@@ -5,6 +5,31 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-10-31
+
+### Fixed
+
+- **Sandbox tokens are stored separately**, in `~/.freeagent-mcp/tokens.sandbox.json`.
+  Signing in to the sandbox no longer overwrites your production tokens. If you
+  already use the sandbox, run `FREEAGENT_SANDBOX=true npx freeagent-mcp-server auth`
+  once after upgrading.
+- `FREEAGENT_ACCESS_TOKEN` now honours `FREEAGENT_SANDBOX` instead of always
+  calling the production API.
+- The server reports its real version to MCP clients instead of `1.0.0`.
+- Requests to FreeAgent time out after 30 seconds instead of hanging a tool call.
+- When FreeAgent rejects a call with several validation errors, every message is
+  passed on instead of a bare "HTTP 422", and a rate limit says when to retry.
+
+### Changed
+
+- Tool results are sent as compact JSON, cutting what the model has to read on
+  large lists by roughly 20–40%.
+- Internal cleanup with no change in behaviour: repeated code across the tool
+  handlers, unused client methods and duplicated token requests removed.
+- The README is now a short front page, with the detail in `docs/` and a new
+  step-by-step setup guide (`docs/setup.md`).
+- CI uses the Node 24 releases of the artifact actions.
+
 ## [2.0.0] - 2026-10-31
 
 ### Breaking
@@ -75,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default to the production FreeAgent API and add an auth paste fallback.
 - Built-in OAuth2 flow with automatic token refresh.
 
+[2.0.1]: https://github.com/samaxbytez/freeagent-mcp/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v1.3.0...v2.0.0
 [1.3.0]: https://github.com/samaxbytez/freeagent-mcp/releases/tag/v1.3.0
 [1.2.0]: https://github.com/samaxbytez/freeagent-mcp/releases/tag/v1.2.0
