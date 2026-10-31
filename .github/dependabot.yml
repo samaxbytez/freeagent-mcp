@@ -8,8 +8,14 @@ updates:
     schedule:
       interval: weekly
     groups:
-      dev-dependencies:
+      # The MCP SDK and zod are bundled into the published file, so an update
+      # to them changes what users run. /release counts a bundled version change
+      # as releasable (RELEASING.md step 3) whatever the commit prefix.
+      bundled:
+        patterns: ["@modelcontextprotocol/sdk", "zod"]
+      dev-tooling:
         dependency-type: development
+        exclude-patterns: ["@modelcontextprotocol/sdk", "zod"]
     commit-message:
       prefix: "fix(deps)"
       prefix-development: "chore(deps)"

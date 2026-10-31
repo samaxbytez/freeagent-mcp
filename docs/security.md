@@ -70,6 +70,20 @@ Pre-signed download links (`content_src` and its variants) are removed from
 everything the tools return, so a receipt's link can't be passed on by an
 injected instruction. The attachment's file name and type are kept.
 
+## Supply chain
+
+The npm package has no dependencies: the server, the MCP SDK and zod are bundled
+into one file at build time. Installing it with `npx` downloads only that file,
+so the versions you run are the ones fixed at release time and tested in CI,
+not whatever an upstream package published that morning. A malicious upstream
+release would only reach you if it were bundled into a later release here.
+
+That moves the trust to the build: dependency updates arrive as reviewable
+pull requests, releases are built with install scripts disabled and published
+with npm provenance, and publishing needs a maintainer's approval in GitHub. The
+build itself runs dev tools (esbuild, vitest), so they're part of what has to be
+trusted.
+
 ## Tokens
 
 OAuth tokens are stored in `~/.freeagent-mcp/tokens.json` (sandbox:

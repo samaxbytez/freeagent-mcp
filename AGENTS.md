@@ -21,7 +21,10 @@ src/
 └── tools/        # One file per FreeAgent resource, each exporting registerXxxTools(server, client)
 ```
 
-Tests are co-located as `*.test.ts` and run with **vitest**.
+Tests are co-located as `*.test.ts` and run with **vitest**. `npm run build`
+bundles everything (server, MCP SDK, zod) into `build/index.js` with esbuild
+(`scripts/bundle.mjs`): the published package has no runtime dependencies, so
+keep the SDK and zod in devDependencies and don't add runtime `dependencies`.
 
 ## Tool pattern
 

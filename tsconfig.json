@@ -3,15 +3,13 @@
     "target": "ES2022",
     "module": "Node16",
     "moduleResolution": "Node16",
-    "outDir": "./build",
+    "noEmit": true,
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "sourceMap": true,
-    "resolveJsonModule": true
+        "resolveJsonModule": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "build", "**/*.test.ts", "**/test-helpers.ts"]
