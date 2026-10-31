@@ -25,6 +25,23 @@ describe("jsonResponse", () => {
   });
 });
 
+describe("jsonResponse redaction", () => {
+  it("removes pre-signed attachment download links at any depth", () => {
+    const text = jsonResponse({
+      expense: {
+        attachment: {
+          file_name: "receipt.pdf",
+          content_src: "https://s3.example/receipt.pdf?X-Amz-Signature=abc",
+          content_src_medium: "https://s3.example/m?sig",
+        },
+      },
+    }).content[0].text;
+    expect(text).not.toContain("X-Amz-Signature");
+    expect(text).not.toContain("s3.example");
+    expect(JSON.parse(text).expense.attachment.file_name).toBe("receipt.pdf");
+  });
+});
+
 describe("errorResponse", () => {
   it("formats Error instances using .message", () => {
     const result = errorResponse(new Error("something went wrong"));

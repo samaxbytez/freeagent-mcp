@@ -58,7 +58,10 @@ and test following this pattern.
 - **Token file** is written `0o600` in a `0o700` directory. Never log tokens.
 - **Attachments** (`src/attachment.ts`) are the only local file read. Reads are
   confined to `FREEAGENT_ATTACHMENTS_DIR`, checked lexically before touching the
-  filesystem and again after `realpath`, with an extension allowlist on both.
+  filesystem and again after `realpath`, with an extension allowlist on both;
+  the file is opened once (no symlink follow) and must be regular with one link.
+- **Tool output** never carries FreeAgent's pre-signed `content_src*` links:
+  `jsonResponse` strips them.
 
 ## Conventions
 

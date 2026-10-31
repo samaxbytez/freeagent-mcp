@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, chmodSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -47,16 +47,21 @@ export function loadTokens(sandbox = false): StoredTokens | null {
 export function saveTokens(tokens: StoredTokens, sandbox = false): void {
   const file = tokenFile(sandbox);
   mkdirSync(TOKEN_DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
   try {
     // mkdirSync's mode only applies when it creates the directory, so tighten a
-    // pre-existing one too. Same for the file: writeFileSync's mode only applies
-    // on creation.
+    // pre-existing one too.
     chmodSync(TOKEN_DIR, 0o700);
-    chmodSync(file, 0o600);
   } catch {
-    // chmod may fail on some platforms, file was already created with mode
+    // chmod may fail on some platforms; the directory was created with the mode
   }
+  // Write a fresh 0o600 file and rename it over the old one. "wx" refuses an
+  // existing path (so a planted symlink is never followed), the new file is never
+  // readable with a looser mode, and a crash mid-write can't leave a truncated
+  // file that loses the rotated refresh token.
+  const tmp = `${file}.${process.pid}.tmp`;
+  rmSync(tmp, { force: true });
+  writeFileSync(tmp, JSON.stringify(tokens, null, 2), { mode: 0o600, flag: "wx" });
+  renameSync(tmp, file);
 }
 
 export function isTokenExpired(tokens: StoredTokens): boolean {
@@ -85,8 +90,15 @@ async function requestTokens(
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${failure} (${response.status}): ${text}`);
+    // Only the OAuth error fields: this message can reach the model via a tool error.
+    let detail = "";
+    try {
+      const body = JSON.parse(await response.text());
+      detail = [body?.error, body?.error_description].filter(Boolean).join(": ").slice(0, 200);
+    } catch {
+      // not JSON
+    }
+    throw new Error(`${failure} (${response.status})${detail ? `: ${detail}` : ""}`);
   }
 
   const data = (await response.json()) as {

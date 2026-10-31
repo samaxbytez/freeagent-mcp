@@ -54,7 +54,15 @@ Also enforced: symlinks and `..` are resolved before anything is judged, so a `.
 symlink pointing at a private key is rejected rather than uploaded; the root and
 extension are checked against the path as given before the filesystem is touched, so
 error messages cannot be used to probe what exists outside the root or which
-non-attachable files exist inside it; and only regular files are read.
+non-attachable files exist inside it; only regular files with a single hard link
+are read (a hard link inside the folder to a file elsewhere is refused); the file
+is opened once and checked through that handle, so it can't be swapped between
+the checks and the read; and a folder that contains your home directory (such as
+`/Users`) is refused as the root, like the home directory itself.
+
+Pre-signed download links (`content_src` and its variants) are removed from
+everything the tools return, so a receipt's link can't be passed on by an
+injected instruction. The attachment's file name and type are kept.
 
 ## Tokens
 
