@@ -24,8 +24,8 @@ Follow the repo's established pattern exactly — read an existing tool first
    - Use `buildParams(...)` for query parameters.
 3. If the file is new, import and call `registerXxxTools` in `src/index.ts`.
 4. Add a test in `src/tools/tools.test.ts` mirroring the existing cases.
-5. Update the tool count and the relevant table in `README.md` (or run
-   `/sync-tool-count`).
+5. Add the tool to its table in `docs/tools.md`, then run `/sync-tool-count`
+   to update the counts there, in the README and in `docs/development.md`.
 6. Run `npm run lint`, `npm run type-check`, and `npm test` until green.
 
 Do not invent API fields — confirm them against the FreeAgent docs. Stop and ask
