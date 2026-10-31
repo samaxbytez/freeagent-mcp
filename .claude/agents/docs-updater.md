@@ -1,6 +1,6 @@
 ---
 name: docs-updater
-description: Keeps user-facing docs in sync with code changes. Use when a PR changes src/ (a tool is added/removed/renamed, an env var changes, or user-facing behaviour changes) and the README or docs may be stale. Also runs automatically on code PRs via the docs-agent workflow.
+description: Keeps user-facing docs in sync with code changes. Use when a PR changes src/ (a tool is added/removed/renamed, an env var changes, or user-facing behaviour changes) and the README or docs may be stale.
 tools: Read, Edit, Write, Grep, Glob
 model: sonnet
 ---
@@ -32,10 +32,3 @@ registrations in `src/tools/*.ts`.
   reword unrelated prose, restructure sections, or touch the changelog.
 - Keep the existing table formats and style.
 - If nothing is out of sync, make no changes.
-
-## In CI (docs-agent workflow)
-
-You run with **no shell and no git access** — only file edit tools. Just make the
-documentation edits. The workflow validates that only docs changed and handles the
-commit + push deterministically in a separate, isolated job; you never touch git,
-secrets, the version, or publishing. If nothing is out of sync, make no edits.
