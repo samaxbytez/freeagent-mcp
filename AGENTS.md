@@ -76,8 +76,9 @@ bump + changelog); merging that PR triggers `publish.yml`, which publishes to np
 via OIDC and creates the tag + GitHub Release. Full detail in
 [RELEASING.md](RELEASING.md).
 
-README tool counts and tables are kept in sync by hand: run `/sync-tool-count`
-after adding, removing or renaming a tool.
+The README is a front page and the detail lives in `docs/` (map:
+[docs/README.md](docs/README.md)). Tool counts and tables are kept in sync by
+hand: run `/sync-tool-count` after adding, removing or renaming a tool.
 
 ## Don'ts
 
