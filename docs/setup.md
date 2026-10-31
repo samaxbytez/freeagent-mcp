@@ -106,11 +106,12 @@ load: check the JSON and restart the client. Other errors:
 - **Try it on test data first:** create a free sandbox company at
   [signup.sandbox.freeagent.com](https://signup.sandbox.freeagent.com/signup)
   and finish its setup steps. Then add `FREEAGENT_SANDBOX=true` to both the
-  `auth` command and `env`. Sandbox and live accounts share `tokens.json`, so
-  copy it aside first if you're already connected to your real books.
+  `auth` command and `env`. Sandbox tokens are stored separately
+  (`tokens.sandbox.json`), so this doesn't disconnect your real books.
 
 ## Disconnecting
 
-Delete `~/.freeagent-mcp/tokens.json` and remove the `freeagent` entry from your
+Delete `~/.freeagent-mcp/tokens.json` (and `tokens.sandbox.json`, if you used the
+sandbox) and remove the `freeagent` entry from your
 client's config. To also cut off the app on FreeAgent's side, revoke its access
 in your FreeAgent account's settings.

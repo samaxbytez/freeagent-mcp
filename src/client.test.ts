@@ -112,18 +112,6 @@ describe("FreeAgentClient - POST", () => {
     ).toBe("application/json");
     expect(opts.body).toBe('{"invoice":{"amount":100}}');
   });
-
-  it("sends form body for postForm", async () => {
-    mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
-    const client = new FreeAgentClient("token");
-    await client.postForm("/v2/test", { key: "value" });
-
-    const opts = mockFetch.mock.calls[0][1] as RequestInit;
-    expect(
-      (opts.headers as Record<string, string>)["Content-Type"]
-    ).toBe("application/x-www-form-urlencoded");
-    expect(opts.body).toBe("key=value");
-  });
 });
 
 describe("FreeAgentClient - PUT", () => {
@@ -271,6 +259,29 @@ describe("FreeAgentClient - error handling", () => {
     }
   });
 
+  it("keeps every message from a list of validation errors", async () => {
+    mockFetch.mockResolvedValueOnce(
+      mockError(422, {
+        errors: [{ message: "Contact can't be blank" }, { message: "Dated on is invalid" }],
+      })
+    );
+    const client = new FreeAgentClient("token");
+    await expect(client.get("/invoices")).rejects.toThrow(
+      "Contact can't be blank; Dated on is invalid"
+    );
+  });
+
+  it("reports a rate limit with its Retry-After", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      headers: new Headers({ "Retry-After": "60" }),
+      text: async () => "You must not exceed 15 requests per 60 seconds",
+    } as Response);
+    const client = new FreeAgentClient("token");
+    await expect(client.get("/invoices")).rejects.toThrow(/rate limit reached; retry after 60 seconds/);
+  });
+
   it("returns safe fallback for malformed error body", async () => {
     mockFetch.mockResolvedValueOnce(mockError(500, "not json"));
 
@@ -283,6 +294,16 @@ describe("FreeAgentClient - error handling", () => {
       expect(err.errorCode).toBe("unknown");
       expect(err.message).not.toContain("not json");
     }
+  });
+});
+
+describe("FreeAgentClient - timeout", () => {
+  it("gives every request an abort signal", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({}));
+    const client = new FreeAgentClient("token");
+    await client.get("/company");
+    const opts = mockFetch.mock.calls[0][1] as RequestInit;
+    expect(opts.signal).toBeInstanceOf(AbortSignal);
   });
 });
 

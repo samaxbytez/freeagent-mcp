@@ -58,8 +58,9 @@ non-attachable files exist inside it; and only regular files are read.
 
 ## Tokens
 
-OAuth tokens are stored in `~/.freeagent-mcp/tokens.json`, written `0o600` in a
-`0o700` directory, and refreshed automatically. They are never logged. The
+OAuth tokens are stored in `~/.freeagent-mcp/tokens.json` (sandbox:
+`tokens.sandbox.json`), written `0o600` in a `0o700` directory, and refreshed
+automatically. They are never logged. Requests time out after 30 seconds. The
 bearer token is only ever sent to the configured API origin: the client rejects
 absolute URLs and any path that resolves outside the API base, including encoded
 `%2e%2e/`.

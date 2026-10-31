@@ -6,6 +6,7 @@ import { FreeAgentClient } from "./client.js";
 import { runAuthFlow, getValidAccessToken, getApiBase } from "./auth.js";
 import type { OAuthConfig } from "./auth.js";
 import { withToolPolicy } from "./policy.js";
+import { createRequire } from "node:module";
 import { registerCompanyTools } from "./tools/company.js";
 import { registerUserTools } from "./tools/users.js";
 import { registerContactTools } from "./tools/contacts.js";
@@ -68,7 +69,7 @@ if (process.argv[2] === "auth") {
     // Legacy: direct access token
     client = new FreeAgentClient(
       FREEAGENT_ACCESS_TOKEN,
-      FREEAGENT_BASE_URL
+      FREEAGENT_BASE_URL || getApiBase(FREEAGENT_SANDBOX)
     );
   } else {
     const config = buildOAuthConfig();
@@ -88,10 +89,12 @@ if (process.argv[2] === "auth") {
     );
   }
 
-  const server = new McpServer({
-    name: "freeagent-mcp",
-    version: "1.0.0",
-  });
+  // package.json sits one level above build/ (and src/), in the published
+  // package too, so the server reports the version actually installed.
+  const { version } = createRequire(import.meta.url)("../package.json") as {
+    version: string;
+  };
+  const server = new McpServer({ name: "freeagent-mcp", version });
   const tools = withToolPolicy(server, {
     allowSensitive: FREEAGENT_ENABLE_SENSITIVE_TOOLS,
   });

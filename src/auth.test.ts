@@ -114,6 +114,21 @@ describe("saveTokens", () => {
     );
   });
 
+  it("keeps sandbox tokens in their own file", () => {
+    saveTokens(validTokens, true);
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      expect.stringMatching(/tokens\.sandbox\.json$/),
+      JSON.stringify(validTokens, null, 2),
+      { mode: 0o600 }
+    );
+    mockReadFileSync.mockReturnValueOnce(JSON.stringify(validTokens));
+    loadTokens(true);
+    expect(mockReadFileSync).toHaveBeenLastCalledWith(
+      expect.stringMatching(/tokens\.sandbox\.json$/),
+      "utf-8"
+    );
+  });
+
   it("tightens a pre-existing token directory to 0o700", () => {
     saveTokens(validTokens);
     expect(vi.mocked(chmodSync)).toHaveBeenCalledWith(

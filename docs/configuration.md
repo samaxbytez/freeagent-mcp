@@ -62,8 +62,8 @@ Pasting needs an interactive terminal: run `auth` in a normal terminal tab, not
 through a tool that gives the command no keyboard input. The callback server
 listens on `127.0.0.1` only.
 
-Sandbox and production share `~/.freeagent-mcp/tokens.json`, so signing in to one
-replaces the other's tokens. Copy the file aside before switching.
+Sandbox tokens are kept separately, in `~/.freeagent-mcp/tokens.sandbox.json`, so
+you can be signed in to both and switch with `FREEAGENT_SANDBOX` alone.
 
 ## Sandbox
 
