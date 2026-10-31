@@ -7,37 +7,45 @@ name: Publish to npm
 # Authentication uses npm Trusted Publishing (OIDC) — no NPM_TOKEN secret is
 # required. Configure the trusted publisher on npmjs.com to point at this
 # workflow file (publish.yml) before the first release lands.
+#
+# Split into two jobs so dependency code never runs where the OIDC token can be
+# minted: `build` installs and runs everything with a read-only token; `publish`
+# holds id-token/contents write, installs nothing, and publishes the prebuilt
+# artifact with --ignore-scripts.
 
 on:
   push:
     branches: [main]
 
 permissions:
-  contents: write # create the release tag + GitHub Release
-  id-token: write # OIDC token for npm auth + provenance
+  contents: read
 
 concurrency:
   group: publish-npm
   cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      published: ${{ steps.v.outputs.published }}
     steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+          persist-credentials: false
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
 
       - name: Determine version and whether it is already published
         id: v
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
           if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
@@ -59,13 +67,48 @@ jobs:
           npm test
           npm run build
 
-      - name: Ensure npm supports OIDC trusted publishing
+      - name: Upload build
         if: steps.v.outputs.published == 'false'
-        run: npm install -g npm@latest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: build
+          path: build/
+          retention-days: 1
 
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release tag + GitHub Release
+      id-token: write # OIDC token for npm auth + provenance
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Download build
+        if: needs.build.outputs.published == 'false'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: build
+          path: build/
+
+      # Pinned rather than @latest: this runs with the OIDC token available.
+      # Trusted publishing needs npm >= 11.5.1.
+      - name: Ensure npm supports OIDC trusted publishing
+        if: needs.build.outputs.published == 'false'
+        run: npm install -g npm@11.21.1
+
+      # --ignore-scripts: the build already ran in the read-only job, so
+      # prepublishOnly (and any lifecycle script) must not run here.
       - name: Publish to npm
-        if: steps.v.outputs.published == 'false'
-        run: npm publish --access public --provenance
+        if: needs.build.outputs.published == 'false'
+        run: |
+          chmod 755 build/index.js
+          npm publish --access public --provenance --ignore-scripts
 
       # Idempotent and decoupled from the publish guard: creates the tag and
       # Release only if missing, so a rerun after a partial failure (publish
@@ -74,8 +117,9 @@ jobs:
       - name: Ensure release tag and GitHub Release exist
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
-          TAG="${{ steps.v.outputs.tag }}"
           if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
             git tag "$TAG"
             git push origin "$TAG"
@@ -83,5 +127,5 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "$TAG" \
-              --notes "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
+              --notes "See [CHANGELOG.md](https://github.com/${REPO}/blob/main/CHANGELOG.md) for details."
           fi
