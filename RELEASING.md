@@ -49,6 +49,14 @@ Both the automated release agent (`release-agent.yml`) and the manual `/release`
 command follow these exact steps to author/update the release PR. **Edit this
 section, not those two** — they are thin pointers here.
 
+In CI the steps are split so the model never holds a shell or a write token
+(commit messages can contain third-party text): `release-agent.yml` runs steps
+1–5, 7 and 8–9 as plain shell, and the model only performs step 6 (CHANGELOG.md)
+plus writing the PR body, with Read/Edit/Write tools. A validation step then
+refuses the PR if anything other than CHANGELOG.md changed after the version
+bump. If you change the bump rules below, update the shell in
+`release-agent.yml` to match.
+
 1. `git fetch --tags --force`, then find the latest semver tag:
    `git tag --sort=-v:refname | head -1` (call it `LAST_TAG`). If there is no tag,
    treat the entire history as releasable.

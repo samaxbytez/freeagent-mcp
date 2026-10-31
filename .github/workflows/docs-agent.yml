@@ -17,6 +17,7 @@ name: Docs agent
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    branches: [main]
     paths:
       - "src/**"
 
@@ -40,7 +41,7 @@ jobs:
     outputs:
       has_changes: ${{ steps.validate.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.ref }}
@@ -59,13 +60,15 @@ jobs:
 
       - name: Compute PR diff for the model
         if: steps.gate.outputs.run == 'true'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git diff "origin/${{ github.base_ref }}...HEAD" -- src > "$RUNNER_TEMP/pr.diff"
+          git diff "origin/${BASE_REF}...HEAD" -- src > "$RUNNER_TEMP/pr.diff"
           wc -l "$RUNNER_TEMP/pr.diff"
 
       - name: Edit docs (LLM, no Bash, read-only token)
         if: steps.gate.outputs.run == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # Read-only token (job permissions are read) so the action can
@@ -109,7 +112,7 @@ jobs:
 
       - name: Upload patch
         if: steps.validate.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: docs-patch
           path: ${{ runner.temp }}/docs.patch
@@ -122,19 +125,26 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: docs-patch
           path: ${{ runner.temp }}
 
       - name: Re-validate patch is docs-only
         run: |
-          PATHS=$(grep -E '^\+\+\+ b/' "$RUNNER_TEMP/docs.patch" | sed 's#^\+\+\+ b/##')
+          # Renames, copies, mode changes and binary patches carry no `+++ b/` line,
+          # so a `+++`-only check misses them. Refuse them outright and check both
+          # sides of every `diff --git` header.
+          if grep -qE '^(rename|copy) (from|to) |^(old|new) mode |^(new|deleted) file mode 120000|^GIT binary patch' "$RUNNER_TEMP/docs.patch"; then
+            echo "::error::Patch contains renames, mode changes, symlinks or binary data; refusing to apply"
+            exit 1
+          fi
+          PATHS=$(grep -E '^diff --git ' "$RUNNER_TEMP/docs.patch" | sed -E 's#^diff --git a/(.*) b/(.*)$#\1\n\2#' | sort -u)
           echo "Patch touches:"; echo "$PATHS"
           BAD=$(echo "$PATHS" | grep -vE "$DOC_PATHS_REGEX" || true)
           if [ -n "$BAD" ]; then
