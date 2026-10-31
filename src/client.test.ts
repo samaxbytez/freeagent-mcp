@@ -216,6 +216,15 @@ describe("FreeAgentClient - path safety", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects percent-encoded traversal that escapes the base path", async () => {
+    const client = new FreeAgentClient("token");
+
+    await expect(
+      client.get("/categories/%2e%2e/%2e%2e/users/me")
+    ).rejects.toThrow(/escapes the API base path/);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("allows normal API paths", async () => {
     mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
     const client = new FreeAgentClient("token");
@@ -274,5 +283,42 @@ describe("FreeAgentClient - error handling", () => {
       expect(err.errorCode).toBe("unknown");
       expect(err.message).not.toContain("not json");
     }
+  });
+});
+
+describe("FreeAgentClient - getList pagination", () => {
+  it("reports next/last page and total from response headers", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        "X-Total-Count": "130",
+        Link:
+          '<https://api.freeagent.com/v2/invoices?page=3&per_page=50>; rel="next", ' +
+          '<https://api.freeagent.com/v2/invoices?page=3&per_page=50>; rel="last"',
+      }),
+      text: async () => JSON.stringify({ invoices: [] }),
+    } as Response);
+    const client = new FreeAgentClient("token");
+
+    const result = await client.getList("/invoices", { page: "2", per_page: "50" });
+
+    expect(result.data).toEqual({ invoices: [] });
+    expect(result.pagination).toEqual({
+      page: 2,
+      per_page: 50,
+      total_count: 130,
+      next_page: 3,
+      last_page: 3,
+    });
+  });
+
+  it("omits next_page on the last page and defaults page size", async () => {
+    mockFetch.mockResolvedValueOnce(mockOk({ contacts: [] }));
+    const client = new FreeAgentClient("token");
+
+    const result = await client.getList("/contacts");
+
+    expect(result.pagination).toEqual({ page: 1, per_page: 25 });
   });
 });

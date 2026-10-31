@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerProjectTools(server: McpServer, client: FreeAgentClient): void {
   // List projects
@@ -12,13 +12,14 @@ export function registerProjectTools(server: McpServer, client: FreeAgentClient)
       view: z.enum(["active", "completed", "cancelled", "hidden"]).optional().describe("Filter projects by status view"),
       sort: z.string().optional().describe("Sort order for results"),
       contact: z.string().optional().describe("Filter by contact URL"),
+      ...paginationParams,
     },
-    async ({ view, sort, contact }) => {
-      logToolCall("freeagent_list_projects", { view, sort, contact });
+    async ({ view, sort, contact, page, per_page }) => {
+      logToolCall("freeagent_list_projects", { view, sort, contact, page, per_page });
       try {
-        const params = buildParams({ view, sort, contact });
-        const data = await client.get("/projects", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, sort, contact, page, per_page });
+        const data = await client.getList("/projects", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }

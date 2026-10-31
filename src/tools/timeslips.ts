@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerTimeslipTools(
   server: McpServer,
@@ -43,6 +43,7 @@ export function registerTimeslipTools(
           .string()
           .optional()
           .describe("Filter by project URL"),
+        ...paginationParams,
       },
     },
     async (args) => {
@@ -56,9 +57,11 @@ export function registerTimeslipTools(
           user: args.user,
           task: args.task,
           project: args.project,
+          page: args.page,
+          per_page: args.per_page,
         });
-        const response = await client.get("/timeslips", params);
-        return jsonResponse(response);
+        const response = await client.getList("/timeslips", params);
+        return listResponse(response);
       } catch (error) {
         return errorResponse(error);
       }

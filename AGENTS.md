@@ -14,7 +14,8 @@ TypeScript, ESM, published to npm, driven over stdio.
 src/
 ├── index.ts      # Entry point: builds the McpServer, wires the client, registers every tool group
 ├── auth.ts       # OAuth2 flow, token storage (~/.freeagent-mcp/tokens.json) and refresh
-├── client.ts     # FreeAgentClient — HTTP wrapper around fetch (get/postJson/putJson/deleteReq)
+├── client.ts     # FreeAgentClient — HTTP wrapper around fetch (get/getList/postJson/putJson/deleteReq)
+├── policy.ts     # withToolPolicy: MCP annotations for every tool, sensitive tools gated behind FREEAGENT_ENABLE_SENSITIVE_TOOLS
 ├── utils.ts      # Shared helpers: jsonResponse, errorResponse, logToolCall, buildParams, safeId, constants
 └── tools/        # One file per FreeAgent resource, each exporting registerXxxTools(server, client)
 ```
@@ -41,9 +42,15 @@ and test following this pattern.
 
 ## Security conventions (this repo's threat model is indirect prompt injection)
 
-- **IDs** → always `safeId` (blocks path traversal via ID fields).
+- **IDs** → always `safeId` (blocks path traversal via ID fields). The
+  "path parameters across all tools" test in `tools.test.ts` enforces this for
+  every argument interpolated into a request path.
+- **List tools** → spread `paginationParams` into the schema and return
+  `listResponse(await client.getList(...))` so results carry `pagination`.
+- **Sensitive tools** (can grant account access or send data out) → add the name
+  to `SENSITIVE_TOOLS` in `policy.ts`.
 - **`client.ts`** rejects absolute URLs / `../` and verifies the resolved URL's
-  origin matches the API base — never weaken this; it prevents the bearer token
+  origin and path stay within the API base (catches encoded `%2e%2e/`) — never weaken this; it prevents the bearer token
   being sent off-origin.
 - **Browser launch** uses `execFile` (never `exec`/shell) and `explorer.exe` on
   Windows — never reintroduce shell interpolation of a URL.

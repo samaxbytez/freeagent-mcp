@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
 
 export function registerInvoiceTools(server: McpServer, client: FreeAgentClient): void {
   // List invoices
@@ -15,13 +15,14 @@ export function registerInvoiceTools(server: McpServer, client: FreeAgentClient)
       project: z.string().optional().describe("Filter by project URL"),
       updated_since: z.string().optional().describe("Filter invoices updated since this date (ISO 8601)"),
       nested_invoice_items: z.boolean().optional().describe("Whether to include nested invoice items in the response"),
+      ...paginationParams,
     },
-    async ({ view, sort, contact, project, updated_since, nested_invoice_items }) => {
-      logToolCall("freeagent_list_invoices", { view, sort, contact, project, updated_since, nested_invoice_items });
+    async ({ view, sort, contact, project, updated_since, nested_invoice_items, page, per_page }) => {
+      logToolCall("freeagent_list_invoices", { view, sort, contact, project, updated_since, nested_invoice_items, page, per_page });
       try {
-        const params = buildParams({ view, sort, contact, project, updated_since, nested_invoice_items });
-        const data = await client.get("/invoices", params);
-        return jsonResponse(data);
+        const params = buildParams({ view, sort, contact, project, updated_since, nested_invoice_items, page, per_page });
+        const data = await client.getList("/invoices", params);
+        return listResponse(data);
       } catch (error) {
         return errorResponse(error);
       }
