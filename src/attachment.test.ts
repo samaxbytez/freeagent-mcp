@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
 import { mkdtempSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import path from "node:path";
 import {
   readAttachment,
@@ -233,6 +233,13 @@ describe("readAttachment", () => {
       await expect(readAttachment(path.join(dir, "absent.txt"))).rejects.toThrow(
         /does not accept/
       );
+    });
+
+    it("refuses the filesystem root and the home directory as the root", async () => {
+      process.env.FREEAGENT_ATTACHMENTS_DIR = path.parse(dir).root;
+      await expect(readAttachment(pdf)).rejects.toThrow(/dedicated receipts directory/);
+      process.env.FREEAGENT_ATTACHMENTS_DIR = homedir();
+      await expect(readAttachment(pdf)).rejects.toThrow(/dedicated receipts directory/);
     });
 
     it("fails loudly when set to a path that does not exist", async () => {

@@ -1,4 +1,5 @@
 import { readFile, realpath, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
 
@@ -100,6 +101,14 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     root = await realpath(confineTo);
   } catch {
     throw new Error("FREEAGENT_ATTACHMENTS_DIR is set to a path that does not exist");
+  }
+  // A root this broad makes confinement meaningless: every PDF or image on the
+  // machine (or in the user's home) would be attachable.
+  const home = await realpath(homedir()).catch(() => homedir());
+  if (root === path.parse(root).root || root === home) {
+    throw new Error(
+      "FREEAGENT_ATTACHMENTS_DIR must be a dedicated receipts directory, not the filesystem root or your home directory"
+    );
   }
 
   // Lexical checks BEFORE touching the input path on disk. If realpath ran first, its
