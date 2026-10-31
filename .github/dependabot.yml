@@ -9,7 +9,8 @@ updates:
       interval: weekly
     groups:
       # The MCP SDK and zod are bundled into the published file, so an update
-      # to them ships to users. Retitle that PR `fix(deps):` so /release picks it up.
+      # to them changes what users run. /release counts a bundled version change
+      # as releasable (RELEASING.md step 3) whatever the commit prefix.
       bundled:
         patterns: ["@modelcontextprotocol/sdk", "zod"]
       dev-tooling:

@@ -6,7 +6,6 @@ import { FreeAgentClient } from "./client.js";
 import { runAuthFlow, getValidAccessToken, getApiBase } from "./auth.js";
 import type { OAuthConfig } from "./auth.js";
 import { withToolPolicy } from "./policy.js";
-import { createRequire } from "node:module";
 import { registerCompanyTools } from "./tools/company.js";
 import { registerUserTools } from "./tools/users.js";
 import { registerContactTools } from "./tools/contacts.js";
@@ -21,6 +20,9 @@ import { registerExpenseTools } from "./tools/expenses.js";
 import { registerBankingTools } from "./tools/banking.js";
 import { registerCategoryTools } from "./tools/categories.js";
 import { registerAccountingTools } from "./tools/accounting.js";
+
+// Inlined from package.json by scripts/bundle.mjs.
+declare const PACKAGE_VERSION: string;
 
 const FREEAGENT_ACCESS_TOKEN = process.env.FREEAGENT_ACCESS_TOKEN;
 const FREEAGENT_CLIENT_ID = process.env.FREEAGENT_CLIENT_ID;
@@ -89,12 +91,7 @@ if (process.argv[2] === "auth") {
     );
   }
 
-  // package.json sits one level above build/ (and src/), in the published
-  // package too, so the server reports the version actually installed.
-  const { version } = createRequire(import.meta.url)("../package.json") as {
-    version: string;
-  };
-  const server = new McpServer({ name: "freeagent-mcp", version });
+  const server = new McpServer({ name: "freeagent-mcp", version: PACKAGE_VERSION });
   const tools = withToolPolicy(server, {
     allowSensitive: FREEAGENT_ENABLE_SENSITIVE_TOOLS,
   });

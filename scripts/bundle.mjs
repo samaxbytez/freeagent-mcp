@@ -4,7 +4,7 @@
 // transitive packages resolve on the day. Also writes the bundled packages'
 // licence notices next to it, as their MIT/ISC licences require.
 import { build } from "esbuild";
-import { chmodSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const OUT = "build/index.js";
@@ -21,6 +21,9 @@ const result = await build({
   sourcemap: false,
   metafile: true,
   legalComments: "none", // collected into THIRD_PARTY_LICENSES.txt instead
+  define: {
+    PACKAGE_VERSION: JSON.stringify(JSON.parse(readFileSync("package.json", "utf8")).version),
+  },
   // Some bundled CommonJS code calls require(); give the ESM bundle one.
   banner: {
     js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
@@ -40,10 +43,10 @@ const notices = [...packages.entries()]
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([name, dir]) => {
     const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
-    const licenceFile = ["LICENSE", "LICENSE.md", "LICENSE.txt", "license", "LICENCE"]
-      .map((f) => path.join(dir, f))
-      .find((f) => existsSync(f));
-    const text = licenceFile ? readFileSync(licenceFile, "utf8").trim() : `License: ${pkg.license}`;
+    const licenceFile = readdirSync(dir).find((f) => /^(licen[cs]e|copying)/i.test(f));
+    // Their licences require the notice to travel with the code: no notice, no build.
+    if (!licenceFile) throw new Error(`${name}@${pkg.version} has no licence file to bundle`);
+    const text = readFileSync(path.join(dir, licenceFile), "utf8").trim();
     return `${name}@${pkg.version} (${pkg.license})\n\n${text}`;
   });
 writeFileSync(

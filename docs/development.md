@@ -17,7 +17,10 @@ The published package has **no runtime dependencies**: `npm run build` bundles t
 server, the MCP SDK and zod into one file with esbuild, plus
 `build/THIRD_PARTY_LICENSES.txt` for the bundled packages. So `npx` users run
 exactly the code that was tested. The SDK and zod are therefore devDependencies;
-a Dependabot update to either only reaches users in the next release.
+an update to either reaches users in the next release, which `/release` cuts for
+a bundled version change even when the commit is `chore(deps)`. `npm run smoke`
+starts the bundled server over MCP and checks what clients see; CI runs it after
+every build.
 
 CI runs lint, type-check, tests and build on Node 24 for every pull request
 (`test (24)`, required on `main`).

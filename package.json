@@ -33,6 +33,7 @@
   },
   "scripts": {
     "build": "node scripts/bundle.mjs",
+    "smoke": "node scripts/smoke.mjs",
     "dev": "tsc --noEmit --watch",
     "start": "node build/index.js",
     "type-check": "tsc --noEmit",

@@ -68,6 +68,7 @@ jobs:
           npm run type-check
           npm test
           npm run build
+          npm run smoke
 
       - name: Upload build
         if: steps.v.outputs.published == 'false'

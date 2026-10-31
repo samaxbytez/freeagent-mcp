@@ -25,3 +25,5 @@ jobs:
       - run: npm run type-check
       - run: npm test
       - run: npm run build
+      # Start the bundled server over MCP and check what clients will see.
+      - run: npm run smoke

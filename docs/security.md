@@ -74,10 +74,15 @@ injected instruction. The attachment's file name and type are kept.
 
 The npm package has no dependencies: the server, the MCP SDK and zod are bundled
 into one file at build time. Installing it with `npx` downloads only that file,
-so a compromised release of any upstream package can't reach your machine
-through this server until it has been reviewed, bundled and released here.
-Releases are built with install scripts disabled, published with npm provenance,
-and only after a maintainer approves the publish in GitHub.
+so the versions you run are the ones fixed at release time and tested in CI,
+not whatever an upstream package published that morning. A malicious upstream
+release would only reach you if it were bundled into a later release here.
+
+That moves the trust to the build: dependency updates arrive as reviewable
+pull requests, releases are built with install scripts disabled and published
+with npm provenance, and publishing needs a maintainer's approval in GitHub. The
+build itself runs dev tools (esbuild, vitest), so they're part of what has to be
+trusted.
 
 ## Tokens
 
