@@ -51,7 +51,14 @@ the terminal. That needs a normal, interactive terminal window.
 The tokens are saved in `~/.freeagent-mcp/tokens.json` and refresh themselves, so
 you won't sign in again unless you revoke access or delete that file.
 
-## 3. Add it to Claude
+## 3. Add it to your AI app
+
+The steps below are for Claude. For Codex CLI, Cursor, VS Code, Windsurf or Gemini
+CLI, use the snippet for your app in
+[configuration.md](configuration.md#mcp-clients) instead: same command, same
+credentials. (ChatGPT and Grok can't use it yet:
+[why](configuration.md#chatgpt-and-grok).)
+
 
 **Claude Desktop and Cowork:** open the config file, creating it if it isn't
 there:
