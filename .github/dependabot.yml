@@ -19,6 +19,22 @@ updates:
     commit-message:
       prefix: "fix(deps)"
       prefix-development: "chore(deps)"
+    # Major upgrades of the toolchain are done deliberately, not weekly: they
+    # tend to need each other (typescript-eslint only supports some TypeScript
+    # majors) and @types/node follows the Node major in package.json engines.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
