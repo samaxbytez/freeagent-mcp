@@ -43,6 +43,10 @@ export function saveTokens(tokens: StoredTokens): void {
   mkdirSync(TOKEN_DIR, { recursive: true, mode: 0o700 });
   writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2), { mode: 0o600 });
   try {
+    // mkdirSync's mode only applies when it creates the directory, so tighten a
+    // pre-existing one too. Same for the file: writeFileSync's mode only applies
+    // on creation.
+    chmodSync(TOKEN_DIR, 0o700);
     chmodSync(TOKEN_FILE, 0o600);
   } catch {
     // chmod may fail on some platforms, file was already created with mode
@@ -132,10 +136,18 @@ export function openBrowser(url: string): void {
   // separator. explorer.exe is a real executable that opens the URL in the
   // default browser; execFile passes it as a single literal arg (CommandLineToArgvW
   // parsing, where `&` is not special), so the query string survives intact.
+  //
+  // The callback matters: without it, a missing opener (e.g. no xdg-open on a
+  // headless box) emits an unhandled 'error' and crashes the auth flow before
+  // the user can paste the redirect URL. The URL is already printed, so just say
+  // the browser didn't open.
+  const onExit = (error: Error | null) => {
+    if (error) console.log("Could not open a browser automatically; use the URL above.");
+  };
   if (platform === "win32") {
-    execFile("explorer.exe", [url]);
+    execFile("explorer.exe", [url], onExit);
   } else {
-    execFile(platform === "darwin" ? "open" : "xdg-open", [url]);
+    execFile(platform === "darwin" ? "open" : "xdg-open", [url], onExit);
   }
 }
 
@@ -285,17 +297,32 @@ export async function runAuthFlow(config: OAuthConfig): Promise<void> {
       async (req: IncomingMessage, res: ServerResponse) => {
         const url = new URL(req.url || "/", `http://localhost:${CALLBACK_PORT}`);
 
+        const plain = {
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Content-Type-Options": "nosniff",
+        };
+
         if (url.pathname !== "/callback") {
-          res.writeHead(404);
+          res.writeHead(404, plain);
           res.end("Not found");
+          return;
+        }
+
+        // A request without this session's state did not come from FreeAgent's
+        // redirect (any web page can hit localhost), so it must not end the flow.
+        // Refuse it and keep waiting for the real redirect.
+        if (url.searchParams.get("state") !== state) {
+          res.writeHead(400, plain);
+          res.end("Invalid or missing state. Waiting for the FreeAgent redirect.");
           return;
         }
 
         const result = parseCallbackUrl(url.toString(), state);
 
         if ("error" in result) {
-          res.writeHead(400);
-          res.end(result.error);
+          // Never reflect query values into the response.
+          res.writeHead(400, plain);
+          res.end("Authorization failed. Return to your terminal for details.");
           if (!settled) {
             settled = true;
             cleanup();
@@ -324,7 +351,9 @@ export async function runAuthFlow(config: OAuthConfig): Promise<void> {
       openBrowser(authUrl);
     });
 
-    httpServer.listen(CALLBACK_PORT, () => {
+    // Loopback only: the callback carries an authorization code and must not be
+    // reachable from the network.
+    httpServer.listen(CALLBACK_PORT, "127.0.0.1", () => {
       printInstructions(true);
       startStdinListener();
       openBrowser(authUrl);

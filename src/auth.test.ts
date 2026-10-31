@@ -8,6 +8,7 @@ import {
   getApiBase,
   parseCallbackUrl,
   openBrowser,
+  runAuthFlow,
   type StoredTokens,
   type OAuthConfig,
 } from "./auth.js";
@@ -27,7 +28,7 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
 import { execFile } from "node:child_process";
 
 const mockExecFile = vi.mocked(execFile);
@@ -35,6 +36,9 @@ const mockExecFile = vi.mocked(execFile);
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockWriteFileSync = vi.mocked(writeFileSync);
 const mockMkdirSync = vi.mocked(mkdirSync);
+
+// Captured before the per-test stub so the callback-server test can make real requests.
+const realFetch = globalThis.fetch;
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -107,6 +111,14 @@ describe("saveTokens", () => {
       expect.stringContaining("tokens.json"),
       JSON.stringify(validTokens, null, 2),
       { mode: 0o600 }
+    );
+  });
+
+  it("tightens a pre-existing token directory to 0o700", () => {
+    saveTokens(validTokens);
+    expect(vi.mocked(chmodSync)).toHaveBeenCalledWith(
+      expect.stringMatching(/\.freeagent-mcp$/),
+      0o700
     );
   });
 });
@@ -290,6 +302,47 @@ describe("openBrowser", () => {
   ] as const)("opens the URL on %s via %s", (platform, command, args) => {
     setPlatform(platform);
     openBrowser(url);
-    expect(mockExecFile).toHaveBeenCalledWith(command, args);
+    expect(mockExecFile).toHaveBeenCalledWith(command, args, expect.any(Function));
+  });
+
+  it("does not throw when no browser opener is available", () => {
+    setPlatform("linux");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    openBrowser(url);
+    const callback = mockExecFile.mock.calls[0][2] as unknown as (e: Error | null) => void;
+    expect(() => callback(new Error("spawn xdg-open ENOENT"))).not.toThrow();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("Could not open a browser"));
+    log.mockRestore();
+  });
+});
+
+describe("runAuthFlow callback server", () => {
+  it("ignores requests without the session state and never reflects query values", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    mockExecFile.mockClear();
+    const flow = runAuthFlow(testConfig);
+    flow.catch(() => {});
+
+    await vi.waitFor(() => expect(mockExecFile).toHaveBeenCalled());
+    const authUrl = new URL(mockExecFile.mock.calls[0][1]![0] as string);
+    const state = authUrl.searchParams.get("state")!;
+    const callback = "http://127.0.0.1:3456/callback";
+
+    // Any web page can hit localhost; a request without our state must not end
+    // the flow.
+    const forged = await realFetch(`${callback}?error=access_denied&state=wrong`);
+    expect(forged.status).toBe(400);
+    expect(forged.headers.get("content-type")).toMatch(/^text\/plain/);
+
+    // The server is still waiting, so this genuine-state request is handled.
+    const payload = "<script>alert(1)</script>";
+    const denied = await realFetch(
+      `${callback}?error=${encodeURIComponent(payload)}&state=${state}`
+    );
+    expect(denied.status).toBe(400);
+    expect(denied.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await denied.text()).not.toContain("<script>");
+    await expect(flow).rejects.toThrow(/OAuth error/);
+    log.mockRestore();
   });
 });
