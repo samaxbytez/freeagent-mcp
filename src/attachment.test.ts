@@ -87,7 +87,8 @@ describe("readAttachment", () => {
     const att = await readAttachment(pdf);
     expect(Buffer.from(att.data, "base64").equals(PDF_BYTES)).toBe(true);
     expect(att.file_name).toBe("receipt.pdf");
-    expect(att.content_type).toBe("application/pdf");
+    // FreeAgent documents application/x-pdf, not application/pdf.
+    expect(att.content_type).toBe("application/x-pdf");
   });
 
   it("maps every supported extension, case-insensitively", async () => {
@@ -208,6 +209,30 @@ describe("readAttachment", () => {
       } finally {
         await rm(outside, { recursive: true, force: true });
       }
+    });
+
+    // Lexical checks run before any filesystem access to the input path, so the error
+    // for a path outside the root is the same whether or not the file exists.
+    it("does not reveal whether a file outside the root exists", async () => {
+      const outside = await mkdtemp(path.join(tmpdir(), "fa-outside-"));
+      try {
+        const exists = path.join(outside, "exists.pdf");
+        await writeFile(exists, PDF_BYTES);
+        const missing = path.join(outside, "missing.pdf");
+        await expect(readAttachment(exists)).rejects.toThrow(/outside the configured/);
+        await expect(readAttachment(missing)).rejects.toThrow(/outside the configured/);
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+
+    it("does not reveal whether a non-attachable file inside the root exists", async () => {
+      const exists = path.join(dir, "secrets.txt");
+      await writeFile(exists, "x");
+      await expect(readAttachment(exists)).rejects.toThrow(/does not accept/);
+      await expect(readAttachment(path.join(dir, "absent.txt"))).rejects.toThrow(
+        /does not accept/
+      );
     });
 
     it("fails loudly when set to a path that does not exist", async () => {

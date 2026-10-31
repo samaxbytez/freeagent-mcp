@@ -75,7 +75,7 @@ describe("attachment_path on expense tools", () => {
     expect(body.expense.attachment).toEqual({
       data: PDF_BYTES.toString("base64"),
       file_name: "invoice.pdf",
-      content_type: "application/pdf",
+      content_type: "application/x-pdf",
     });
     // The raw path must never reach the API as a field.
     expect(body.expense.attachment_path).toBeUndefined();

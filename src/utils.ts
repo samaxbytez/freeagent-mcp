@@ -37,11 +37,11 @@ export function logToolCall(tool: string, params?: Record<string, unknown>) {
   };
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      // *_path values are the audit record of which local file was read, so a long
+      // attachment_path is the audit record of which local file was read, so a long
       // path truncated to 20 chars ("C:\Users\ChrisCoomb...") would defeat the point.
-      // They are filenames, not secrets.
+      // It is a filename, not a secret. Exempt only this key, not a whole naming class.
       sanitized[k] =
-        typeof v === "string" && v.length > 100 && !k.endsWith("_path")
+        typeof v === "string" && v.length > 100 && k !== "attachment_path"
           ? v.slice(0, 20) + "..."
           : v;
     }

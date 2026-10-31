@@ -19,22 +19,29 @@ import { z } from "zod";
  * no token at all, and `freeagent_get_expense` hands that straight back to the model.
  * Scoping the read to one directory is what breaks that chain.
  *
- * Beyond the root check: symlinks and `..` are resolved BEFORE anything is judged, so
- * the extension test cannot be fooled by `receipt.pdf -> ~/.ssh/id_rsa`; the extension
- * allowlist gates the stat calls as well as the read, so error messages cannot be used
- * to probe existence or size of files that are not attachable; and only regular files
- * are read, so devices and FIFOs are out.
+ * Beyond the root check: the root and extension are first checked lexically, before
+ * any filesystem access, so error messages cannot be used to probe whether a file
+ * exists outside the root or a non-attachable file exists inside it. Symlinks and `..`
+ * are then resolved and both checks run again on the true target, so neither can be
+ * fooled by `receipt.pdf -> ~/.ssh/id_rsa`. Only regular files are read, so devices
+ * and FIFOs are out.
  */
 
 /** FreeAgent rejects attachments above 5MB. */
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
-/** Extensions FreeAgent accepts, mapped to the content_type it expects. */
+/**
+ * Extensions FreeAgent accepts, mapped to the content_type it expects. The Expenses and
+ * Bills docs list exactly: image/png, image/x-png, image/jpeg, image/jpg, image/gif and
+ * application/x-pdf. Note PDF is `application/x-pdf`, not the more common
+ * `application/pdf`, which is not on that list.
+ */
 export const ATTACHMENT_CONTENT_TYPES: Readonly<Record<string, string>> = Object.freeze({
-  ".pdf": "application/pdf",
+  ".pdf": "application/x-pdf",
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
 });
 
 /** Shared so the four tools that accept an attachment cannot drift in wording. */
@@ -42,7 +49,7 @@ export const attachmentPathSchema = z
   .string()
   .optional()
   .describe(
-    "Path to a local receipt or invoice file to attach (PDF, PNG or JPEG, max 5MB). Sent in the same request, so the record is never created without its receipt."
+    "Path to a local receipt or invoice file to attach (PDF, PNG, JPEG or GIF, max 5MB). Sent in the same request, so the record is never created without its receipt."
   );
 
 export interface Attachment {
@@ -88,39 +95,39 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     );
   }
 
-  // realpath first: every check below must run against the true target, not a
-  // symlink or a path containing `..`.
-  let resolved: string;
-  try {
-    resolved = await realpath(inputPath);
-  } catch {
-    throw new Error(`Attachment not found: ${inputPath}`);
-  }
-
   let root: string;
   try {
     root = await realpath(confineTo);
   } catch {
     throw new Error("FREEAGENT_ATTACHMENTS_DIR is set to a path that does not exist");
   }
+
+  // Lexical checks BEFORE touching the input path on disk. If realpath ran first, its
+  // "not found" would reveal whether any file on the machine exists ("outside" vs "not
+  // found"), and inside the root whether e.g. secrets.txt exists ("does not accept" vs
+  // "not found"). The configured root is accepted in both its given and resolved
+  // forms, since it may itself sit behind a symlink (e.g. /tmp on macOS).
+  const lexical = path.resolve(inputPath);
+  if (!isInside(path.resolve(confineTo), lexical) && !isInside(root, lexical)) {
+    throw outsideRoot();
+  }
+  contentTypeFor(lexical);
+
+  // Now resolve symlinks and `..` and judge the true target again: a link inside the
+  // root can point outside it, and `receipt.pdf` can point at `id_rsa`.
+  let resolved: string;
+  try {
+    resolved = await realpath(inputPath);
+  } catch {
+    throw new Error(`Attachment not found: ${inputPath}`);
+  }
   if (!isInside(root, resolved)) {
-    // The root is deliberately not echoed. It is a canonical absolute path, and
-    // naming it would tell an attacker where the real invoices are kept.
-    throw new Error(
-      "Attachment is outside the configured attachment directory and was not read"
-    );
+    throw outsideRoot();
   }
 
   // Extension check BEFORE stat, so "not a regular file" / "is empty" / a byte count
   // cannot be used to probe paths that could never be attached anyway.
-  const ext = path.extname(resolved).toLowerCase();
-  const contentType = ATTACHMENT_CONTENT_TYPES[ext];
-  if (!contentType) {
-    const supported = Object.keys(ATTACHMENT_CONTENT_TYPES).sort().join(", ");
-    throw new Error(
-      `FreeAgent does not accept "${ext || "extensionless"}" attachments. Supported: ${supported}`
-    );
-  }
+  const contentType = contentTypeFor(resolved);
 
   const info = await stat(resolved);
   if (!info.isFile()) {
@@ -151,4 +158,24 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     file_name: path.basename(resolved),
     content_type: contentType,
   };
+}
+
+function outsideRoot(): Error {
+  // The root is deliberately not echoed. It is a canonical absolute path, and naming
+  // it would tell an attacker where the real invoices are kept.
+  return new Error(
+    "Attachment is outside the configured attachment directory and was not read"
+  );
+}
+
+function contentTypeFor(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = ATTACHMENT_CONTENT_TYPES[ext];
+  if (!contentType) {
+    const supported = Object.keys(ATTACHMENT_CONTENT_TYPES).sort().join(", ");
+    throw new Error(
+      `FreeAgent does not accept "${ext || "extensionless"}" attachments. Supported: ${supported}`
+    );
+  }
+  return contentType;
 }
