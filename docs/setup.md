@@ -107,7 +107,8 @@ load: check the JSON and restart the client. Other errors:
 - **Attach receipts** to expenses and bills: make a folder for them and add
   `"FREEAGENT_ATTACHMENTS_DIR": "/path/to/receipts"` to `env`. Only files in
   that folder can be attached ([security.md](security.md#attachments)).
-- **Manage users or email invoices:** these four tools are off by default. Add
+- **Manage users, email invoices, add bank accounts or change a contact's
+  email:** these are off by default. Add
   `"FREEAGENT_ENABLE_SENSITIVE_TOOLS": "true"` to `env` to turn them on
   ([security.md](security.md#sensitive-tools)).
 - **Try it on test data first:** create a free sandbox company at

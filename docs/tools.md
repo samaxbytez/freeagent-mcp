@@ -15,7 +15,8 @@ Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`,
 `openWorldHint`) so clients can ask for confirmation before writes and deletes.
 `list_*` and `get_*` tools are read-only; `update_*`, `delete_*` and cancelling an
 invoice are marked destructive; sending an invoice email is marked open-world.
-Four tools are off by default: see [security.md](security.md#sensitive-tools).
+Five tools, and the `email` field of `freeagent_update_contact`, are off by
+default: see [security.md](security.md#sensitive-tools).
 
 ## Company (3 tools)
 

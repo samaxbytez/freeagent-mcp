@@ -1,4 +1,5 @@
-import { readFile, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { open, realpath, type FileHandle } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
@@ -103,11 +104,12 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     throw new Error("FREEAGENT_ATTACHMENTS_DIR is set to a path that does not exist");
   }
   // A root this broad makes confinement meaningless: every PDF or image on the
-  // machine (or in the user's home) would be attachable.
+  // machine (or in the user's home) would be attachable. That includes any folder
+  // that contains the home directory, such as /Users or /home.
   const home = await realpath(homedir()).catch(() => homedir());
-  if (root === path.parse(root).root || root === home) {
+  if (root === path.parse(root).root || root === home || isInside(root, home)) {
     throw new Error(
-      "FREEAGENT_ATTACHMENTS_DIR must be a dedicated receipts directory, not the filesystem root or your home directory"
+      "FREEAGENT_ATTACHMENTS_DIR must be a dedicated receipts directory, not the filesystem root, your home directory or a folder containing it"
     );
   }
 
@@ -138,28 +140,58 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
   // cannot be used to probe paths that could never be attached anyway.
   const contentType = contentTypeFor(resolved);
 
-  const info = await stat(resolved);
-  if (!info.isFile()) {
-    throw new Error(`Attachment is not a regular file: ${inputPath}`);
-  }
-  if (info.size === 0) {
-    throw new Error(`Attachment is empty: ${inputPath}`);
-  }
-  if (info.size > MAX_ATTACHMENT_BYTES) {
-    const mb = (info.size / 1024 / 1024).toFixed(1);
-    throw new Error(
-      `Attachment is ${mb}MB. FreeAgent rejects attachments over ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB.`
+  // Open once and judge the opened file rather than the path: stat-then-readFile
+  // re-resolved the path each time, so a symlink swapped in between was followed.
+  // O_NOFOLLOW refuses a symlink planted at the final component after realpath;
+  // O_NONBLOCK stops a FIFO from blocking the open (it is then refused below).
+  let handle: FileHandle;
+  try {
+    handle = await open(
+      resolved,
+      constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)
     );
+  } catch {
+    throw new Error(`Attachment could not be opened: ${inputPath}`);
   }
 
-  const bytes = await readFile(resolved);
+  let bytes: Buffer;
+  try {
+    const info = await handle.stat();
+    if (!info.isFile()) {
+      throw new Error(`Attachment is not a regular file: ${inputPath}`);
+    }
+    // A hard link inside the root to a file outside it looks like an ordinary file
+    // in the root: realpath returns the in-root name. Refuse multiply-linked files.
+    if (info.nlink > 1) {
+      throw new Error(`Attachment has more than one hard link and was not read: ${inputPath}`);
+    }
+    if (info.size === 0) {
+      throw new Error(`Attachment is empty: ${inputPath}`);
+    }
+    if (info.size > MAX_ATTACHMENT_BYTES) {
+      const mb = (info.size / 1024 / 1024).toFixed(1);
+      throw new Error(
+        `Attachment is ${mb}MB. FreeAgent rejects attachments over ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB.`
+      );
+    }
 
-  // stat and read are separate syscalls, so judge the bytes actually held rather than
-  // trusting the earlier size. This bounds what is uploaded, not what is allocated.
-  if (bytes.length > MAX_ATTACHMENT_BYTES) {
-    throw new Error(
-      `Attachment grew past ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB while being read and was not sent.`
-    );
+    // Read at most one byte past the cap, so a file that grows after the size check
+    // can neither be uploaded nor make us allocate all of it.
+    const buffer = Buffer.alloc(MAX_ATTACHMENT_BYTES + 1);
+    let filled = 0;
+    while (filled < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, filled, buffer.length - filled, filled);
+      if (bytesRead === 0) break;
+      filled += bytesRead;
+    }
+    if (filled > MAX_ATTACHMENT_BYTES) {
+      throw new Error(
+        `Attachment grew past ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB while being read and was not sent.`
+      );
+    }
+    bytes = buffer.subarray(0, filled);
+  } finally {
+    await handle.close();
   }
 
   return {

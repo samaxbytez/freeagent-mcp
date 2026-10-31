@@ -18,6 +18,8 @@ vi.mock("node:fs", () => ({
   writeFileSync: vi.fn(),
   mkdirSync: vi.fn(),
   chmodSync: vi.fn(),
+  renameSync: vi.fn(),
+  rmSync: vi.fn(),
 }));
 
 vi.mock("node:os", () => ({
@@ -28,7 +30,7 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { readFileSync, writeFileSync, mkdirSync, chmodSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, chmodSync, renameSync } from "node:fs";
 import { execFile } from "node:child_process";
 
 const mockExecFile = vi.mocked(execFile);
@@ -107,19 +109,24 @@ describe("saveTokens", () => {
       expect.stringContaining(".freeagent-mcp"),
       { recursive: true, mode: 0o700 }
     );
+    // Written to a fresh temp file ("wx": never through an existing path or
+    // symlink), then renamed over tokens.json.
     expect(mockWriteFileSync).toHaveBeenCalledWith(
-      expect.stringContaining("tokens.json"),
+      expect.stringMatching(/tokens\.json\.\d+\.tmp$/),
       JSON.stringify(validTokens, null, 2),
-      { mode: 0o600 }
+      { mode: 0o600, flag: "wx" }
+    );
+    expect(vi.mocked(renameSync)).toHaveBeenCalledWith(
+      expect.stringMatching(/tokens\.json\.\d+\.tmp$/),
+      expect.stringMatching(/tokens\.json$/)
     );
   });
 
   it("keeps sandbox tokens in their own file", () => {
     saveTokens(validTokens, true);
-    expect(mockWriteFileSync).toHaveBeenCalledWith(
-      expect.stringMatching(/tokens\.sandbox\.json$/),
-      JSON.stringify(validTokens, null, 2),
-      { mode: 0o600 }
+    expect(vi.mocked(renameSync)).toHaveBeenLastCalledWith(
+      expect.any(String),
+      expect.stringMatching(/tokens\.sandbox\.json$/)
     );
     mockReadFileSync.mockReturnValueOnce(JSON.stringify(validTokens));
     loadTokens(true);
@@ -193,6 +200,18 @@ describe("refreshAccessToken", () => {
     await expect(
       refreshAccessToken(testConfig, "bad-token")
     ).rejects.toThrow("Token refresh failed (401)");
+  });
+
+  it("passes on only the OAuth error fields from a failed token call", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      text: async () =>
+        JSON.stringify({ error: "invalid_grant", error_description: "Expired", debug: "internal-detail" }),
+    } as Response);
+
+    const err = await refreshAccessToken(testConfig, "bad").catch((e: Error) => e);
+    expect(err.message).toBe("Token refresh failed (400): invalid_grant: Expired");
   });
 
   it("uses production URL when sandbox is false", async () => {

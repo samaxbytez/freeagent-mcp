@@ -1,0 +1,21 @@
+# Weekly update PRs for npm dependencies and for the pinned GitHub Actions
+# SHAs. Security fixes arrive as soon as an advisory is published once
+# Dependabot security updates are switched on in the repo settings.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    commit-message:
+      prefix: "fix(deps)"
+      prefix-development: "chore(deps)"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"

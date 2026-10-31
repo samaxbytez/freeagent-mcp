@@ -56,8 +56,14 @@ function pageFromLink(link: string, rel: string): number | undefined {
   for (const part of link.split(",")) {
     const match = part.match(/<([^>]+)>\s*;\s*rel="?([a-z]+)"?/i);
     if (match && match[2] === rel) {
-      const page = new URL(match[1]).searchParams.get("page");
-      return page ? Number(page) : undefined;
+      // Relative to the API base if FreeAgent ever sends a relative link; a
+      // malformed one just means no page number, not a failed list call.
+      try {
+        const page = new URL(match[1], "https://api.freeagent.com/").searchParams.get("page");
+        return page ? Number(page) : undefined;
+      } catch {
+        return undefined;
+      }
     }
   }
   return undefined;

@@ -5,6 +5,8 @@ import { withToolPolicy, annotationsFor, SENSITIVE_TOOLS } from "./policy.js";
 import { registerUserTools } from "./tools/users.js";
 import { registerInvoiceTools } from "./tools/invoices.js";
 import { registerCompanyTools } from "./tools/company.js";
+import { registerContactTools } from "./tools/contacts.js";
+import { registerBankingTools } from "./tools/banking.js";
 
 function registeredTools(server: McpServer): Record<string, { annotations?: unknown }> {
   return (server as unknown as { _registeredTools: Record<string, { annotations?: unknown }> })
@@ -18,6 +20,8 @@ function setup(allowSensitive: boolean) {
   registerUserTools(tools, client);
   registerInvoiceTools(tools, client);
   registerCompanyTools(tools, client);
+  registerContactTools(tools, client);
+  registerBankingTools(tools, client);
   return registeredTools(server);
 }
 
@@ -29,6 +33,17 @@ describe("withToolPolicy", () => {
     }
     expect(tools["freeagent_list_users"]).toBeDefined();
     expect(tools["freeagent_create_invoice"]).toBeDefined();
+  });
+
+  it("drops a contact's email from update_contact unless opted in", () => {
+    const fieldsOf = (t: { inputSchema?: unknown }) =>
+      Object.keys((t.inputSchema as { shape: Record<string, unknown> }).shape);
+    const off = fieldsOf(setup(false)["freeagent_update_contact"]);
+    expect(off).not.toContain("email");
+    expect(off).toContain("organisation_name");
+    expect(fieldsOf(setup(true)["freeagent_update_contact"])).toContain("email");
+    // create_contact keeps email: a new contact can't redirect anyone's mail.
+    expect(fieldsOf(setup(false)["freeagent_create_contact"])).toContain("email");
   });
 
   it("keeps sensitive tools when opted in", () => {

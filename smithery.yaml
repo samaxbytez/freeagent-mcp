@@ -20,7 +20,7 @@ startCommand:
         description: Legacy - direct OAuth2 access token (skips stored token flow)
       freeagentEnableSensitiveTools:
         type: string
-        description: Set to "true" to enable user-management and invoice-email tools (off by default)
+        description: Set to "true" to enable user management, invoice emailing, adding bank accounts and changing contact emails (off by default)
       freeagentAttachmentsDir:
         type: string
         description: Directory attachment_path may read receipts from. Required to attach files to expenses and bills.

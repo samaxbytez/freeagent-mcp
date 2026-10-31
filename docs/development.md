@@ -67,6 +67,7 @@ test in this repo's pattern. By hand:
 ## Releasing
 
 Run `/release` on an up-to-date `main`: it opens the `chore: release X.Y.Z` PR
-from the conventional commits since the last tag. Merging that PR publishes to
-npm and tags the release. Never run `npm publish` or create tags by hand. Full
+from the conventional commits since the last tag. Merging that PR builds the
+release; approving the `npm-publish` deployment in Actions publishes it to npm and
+tags it. Never run `npm publish` or create tags by hand. Full
 detail: [RELEASING.md](../RELEASING.md).

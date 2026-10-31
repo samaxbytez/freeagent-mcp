@@ -16,10 +16,24 @@ export const paginationParams = {
     .describe(`Results per page (default 25, max ${MAX_PAGE_SIZE}). Check pagination.next_page in the response for more results.`),
 };
 
+// FreeAgent returns attachments with content_src* links: pre-signed S3 URLs that
+// download the file with no token. A model steered by injected text could pass
+// one on (to a web fetch, a rendered image, a message) and leak the receipt, so
+// tool output never carries them. The attachment's file_name and type remain.
+const PRESIGNED_LINK = /^content_src/;
+const REMOVED_LINK = "[removed: pre-signed download link]";
+
 export function jsonResponse(data: unknown) {
   return {
     // Compact: indentation adds 20-40% to large payloads, all of it model tokens.
-    content: [{ type: "text" as const, text: JSON.stringify(data) }],
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(data, (key, value) =>
+          PRESIGNED_LINK.test(key) && typeof value === "string" ? REMOVED_LINK : value
+        ),
+      },
+    ],
   };
 }
 

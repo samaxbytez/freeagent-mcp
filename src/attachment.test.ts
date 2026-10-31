@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, symlink, rm, link } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import path from "node:path";
@@ -240,6 +241,30 @@ describe("readAttachment", () => {
       await expect(readAttachment(pdf)).rejects.toThrow(/dedicated receipts directory/);
       process.env.FREEAGENT_ATTACHMENTS_DIR = homedir();
       await expect(readAttachment(pdf)).rejects.toThrow(/dedicated receipts directory/);
+      // A folder containing the home directory (e.g. /Users) is just as broad.
+      process.env.FREEAGENT_ATTACHMENTS_DIR = path.dirname(homedir());
+      await expect(readAttachment(pdf)).rejects.toThrow(/dedicated receipts directory/);
+    });
+
+    // A hard link inside the root to a file outside it passes every path check:
+    // realpath returns the in-root name. Found by a live attack run.
+    it("refuses a hard link to a file outside the root", async () => {
+      const outside = await mkdtemp(path.join(tmpdir(), "fa-outside-"));
+      try {
+        const secret = path.join(outside, "statement.pdf");
+        await writeFile(secret, "%PDF-1.4 SECRET");
+        const linked = path.join(dir, "linked.pdf");
+        await link(secret, linked);
+        await expect(readAttachment(linked)).rejects.toThrow(/more than one hard link/);
+      } finally {
+        await rm(outside, { recursive: true, force: true });
+      }
+    });
+
+    it.skipIf(process.platform === "win32")("refuses a FIFO without blocking", async () => {
+      const fifo = path.join(dir, "pipe.pdf");
+      execFileSync("mkfifo", [fifo]);
+      await expect(readAttachment(fifo)).rejects.toThrow(/not a regular file/);
     });
 
     it("fails loudly when set to a path that does not exist", async () => {

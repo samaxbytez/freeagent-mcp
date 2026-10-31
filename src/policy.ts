@@ -10,7 +10,23 @@ export const SENSITIVE_TOOLS = new Set([
   "freeagent_update_user",
   "freeagent_delete_user",
   "freeagent_send_invoice_email",
+  // A new bank account can carry an attacker's sort code / IBAN and be made primary.
+  "freeagent_create_bank_account",
 ]);
+
+// Fields dropped from an otherwise ordinary tool unless sensitive tools are on.
+// Changing an existing customer's email redirects FreeAgent's own invoice and
+// reminder emails, so update_contact keeps every field except that one.
+export const SENSITIVE_FIELDS: Record<string, string[]> = {
+  freeagent_update_contact: ["email"],
+};
+
+function withoutFields(schema: unknown, fields: string[]): unknown {
+  if (!schema || typeof schema !== "object") return schema;
+  return Object.fromEntries(
+    Object.entries(schema as Record<string, unknown>).filter(([k]) => !fields.includes(k))
+  );
+}
 
 export function annotationsFor(name: string): ToolAnnotations {
   const action = name.replace(/^freeagent_/, "").split("_")[0];
@@ -50,8 +66,22 @@ export function withToolPolicy(
         const original = Reflect.get(target, prop, receiver) as (
           ...args: unknown[]
         ) => RegisteredTool;
-        return (...args: unknown[]) =>
-          applyPolicy(args[0] as string, original.apply(target, args));
+        return (...args: unknown[]) => {
+          const name = args[0] as string;
+          const fields = options.allowSensitive ? undefined : SENSITIVE_FIELDS[name];
+          if (fields) {
+            // server.tool(name, description, schema, cb) or
+            // server.registerTool(name, { inputSchema }, cb). The schema is a zod
+            // raw shape, so a dropped field is stripped from every call.
+            if (prop === "tool" && typeof args[3] === "function") {
+              args[2] = withoutFields(args[2], fields);
+            } else if (prop === "registerTool") {
+              const config = args[1] as { inputSchema?: unknown };
+              args[1] = { ...config, inputSchema: withoutFields(config.inputSchema, fields) };
+            }
+          }
+          return applyPolicy(name, original.apply(target, args));
+        };
       }
       return Reflect.get(target, prop, receiver);
     },

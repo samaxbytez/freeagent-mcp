@@ -55,9 +55,11 @@ jobs:
             echo "::notice::Publishing $NAME@$VERSION."
           fi
 
+      # --ignore-scripts: no dependency's install script gets a chance to alter
+      # build/ before it is uploaded and published. Nothing here needs one.
       - name: Install dependencies
         if: steps.v.outputs.published == 'false'
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Verify (lint, type-check, test, build)
         if: steps.v.outputs.published == 'false'
@@ -77,12 +79,21 @@ jobs:
 
   publish:
     needs: build
+    # Only when there is a new version, so ordinary merges don't wait for approval.
+    if: needs.build.outputs.published == 'false'
+    # Requires a maintainer's approval in GitHub before this job (and its OIDC
+    # token) runs, so a stolen GitHub login can't publish to npm on its own.
+    environment: npm-publish
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the release tag + GitHub Release
       id-token: write # OIDC token for npm auth + provenance
     steps:
+      # No git credentials on disk in the job that can publish: the tag and
+      # Release are created through the API below.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
@@ -90,42 +101,43 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Download build
-        if: needs.build.outputs.published == 'false'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: build
           path: build/
 
-      # Pinned rather than @latest: this runs with the OIDC token available.
-      # Trusted publishing needs npm >= 11.5.1.
-      - name: Ensure npm supports OIDC trusted publishing
-        if: needs.build.outputs.published == 'false'
-        run: npm install -g npm@11.21.1
+      # Trusted publishing needs npm >= 11.5.1, which Node 24 already bundles.
+      # Check rather than install: nothing is downloaded and run in this job,
+      # which holds the OIDC token.
+      - name: Check npm supports OIDC trusted publishing
+        run: |
+          node -e '
+            const [maj, min] = process.argv[1].split(".").map(Number);
+            if (maj < 11 || (maj === 11 && min < 5)) {
+              console.error(`npm ${process.argv[1]} is too old for trusted publishing`);
+              process.exit(1);
+            }' "$(npm --version)"
 
       # --ignore-scripts: the build already ran in the read-only job, so
       # prepublishOnly (and any lifecycle script) must not run here.
       - name: Publish to npm
-        if: needs.build.outputs.published == 'false'
         run: |
           chmod 755 build/index.js
           npm publish --access public --provenance --ignore-scripts
 
-      # Idempotent and decoupled from the publish guard: creates the tag and
-      # Release only if missing, so a rerun after a partial failure (publish
-      # succeeded but tagging/Release did not) repairs the release. On ordinary
-      # merges where the tag already exists, both checks are cheap no-ops.
+      # Idempotent: creates the tag and Release only if missing, so re-running
+      # this job after a partial failure (published, but no Release) repairs it.
       - name: Ensure release tag and GitHub Release exist
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.build.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
+          # --target creates the tag at this commit through the API if it doesn't
+          # exist yet; an existing tag is used as it is.
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
+              --target "$GITHUB_SHA" \
               --title "$TAG" \
               --notes "See [CHANGELOG.md](https://github.com/${REPO}/blob/main/CHANGELOG.md) for details."
           fi
