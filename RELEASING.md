@@ -40,7 +40,9 @@ Conventional Commit — that title becomes the commit `/release` reads.
 2. On an up-to-date `main`, run **`/release`** in Claude Code. It opens (or
    updates) a `chore: release X.Y.Z` PR. Review it — adjust the changelog wording
    if you like.
-3. Merge the release PR. The publish workflow does the rest.
+3. Merge the release PR. The publish workflow builds it, then waits for you:
+   open the run in **Actions** and approve the **npm-publish** deployment. Only
+   then does it publish to npm and create the tag and GitHub Release.
 
 To skip an unwanted release, just don't merge the release PR; run `/release`
 again later to bring it up to date.
