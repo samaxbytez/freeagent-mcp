@@ -1,12 +1,18 @@
 # Weekly update PRs for npm dependencies and for the pinned GitHub Actions
 # SHAs. Security fixes arrive as soon as an advisory is published once
 # Dependabot security updates are switched on in the repo settings.
+#
+# cooldown: a routine version update is only proposed once the release is a
+# week old. Malicious or broken releases are usually caught and pulled within
+# days, so most never reach a PR. Security updates ignore the cooldown.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       # The MCP SDK and zod are bundled into the published file, so an update
       # to them changes what users run. /release counts a bundled version change
@@ -39,5 +45,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "ci"
