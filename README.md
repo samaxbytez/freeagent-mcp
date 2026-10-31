@@ -8,8 +8,9 @@
 
 <!-- The Node.js and MCP SDK badges are static: change them with package.json's engines and @modelcontextprotocol/sdk. -->
 
-An [MCP](https://modelcontextprotocol.io) server that gives Claude, or any MCP
-client, the [FreeAgent](https://www.freeagent.com/) accounting API: 76 tools for
+An [MCP](https://modelcontextprotocol.io) server that gives Claude, Codex, Cursor,
+VS Code, Gemini CLI or any other MCP client the
+[FreeAgent](https://www.freeagent.com/) accounting API: 76 tools for
 invoices, expenses, bills, contacts, projects, timeslips, banking, estimates,
 credit notes and the accounting reports.
 
@@ -32,7 +33,7 @@ reads, writes or deletes, and receipts are only read from one folder you choose.
 ## How it fits together
 
 ```
-Claude Desktop / Cowork / Claude Code ──stdio──▶ freeagent-mcp-server (Node.js, on your machine)
+Claude, Codex, Cursor, VS Code, … ──stdio──▶ freeagent-mcp-server (Node.js, on your machine)
                                                    ├─ 76 tools; sensitive ones only with FREEAGENT_ENABLE_SENSITIVE_TOOLS
                                                    ├─ OAuth2 tokens in ~/.freeagent-mcp/tokens.json, refreshed automatically
                                                    ├─ receipts read from FREEAGENT_ATTACHMENTS_DIR only
@@ -40,7 +41,9 @@ Claude Desktop / Cowork / Claude Code ──stdio──▶ freeagent-mcp-server 
 ```
 
 The server runs locally, started by your MCP client, and talks to nothing but
-FreeAgent's API.
+FreeAgent's API. That's also why ChatGPT and Grok can't use it yet: they only
+connect to MCP servers hosted on the internet
+([details](docs/configuration.md#chatgpt-and-grok)).
 
 ## Quick start
 
@@ -62,7 +65,9 @@ step-by-step guide: [docs/setup.md](docs/setup.md).**
 
 3. **Add it to Claude**: `claude_desktop_config.json` for Claude Desktop and
    Cowork (on macOS in `~/Library/Application Support/Claude/`), `.mcp.json` for
-   Claude Code. Then restart the client.
+   Claude Code. Then restart the client. Codex CLI, Cursor, VS Code, Windsurf and
+   Gemini CLI take the same command and credentials in their own config file:
+   [docs/configuration.md](docs/configuration.md#mcp-clients).
 
    ```json
    {
@@ -138,8 +143,8 @@ The whole map is [docs/README.md](docs/README.md).
 
 | Doc | What |
 | --- | --- |
-| [docs/setup.md](docs/setup.md) | Step by step: client ID and secret, connecting your account, adding it to Claude |
-| [docs/configuration.md](docs/configuration.md) | Every setting, signing in, the sandbox, client config |
+| [docs/setup.md](docs/setup.md) | Step by step: client ID and secret, connecting your account, adding it to your AI app |
+| [docs/configuration.md](docs/configuration.md) | Every setting, signing in, the sandbox, config for each MCP client |
 | [docs/tools.md](docs/tools.md) | All 76 tools, pagination, annotations, example prompts |
 | [docs/security.md](docs/security.md) | The threat model, sensitive tools, attachments, tokens |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors and fixes |
