@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerExpenseTools(server: McpServer, client: FreeAgentClient): void {
@@ -31,10 +31,10 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
         .describe("Filter by project URL"),
       ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, project, page, per_page }) => {
-      logToolCall("freeagent_list_expenses", { view, from_date, to_date, updated_since, project, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_expenses", args);
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, project, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/expenses", params);
         return listResponse(data);
       } catch (error) {
@@ -100,18 +100,18 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
     }) => {
       logToolCall("freeagent_create_expense", { user, category, dated_on, gross_value, attachment_path });
       try {
-        const expense: Record<string, unknown> = {
+        const expense = definedOnly({
           user,
           category,
           dated_on,
           gross_value,
-        };
-        if (currency !== undefined) expense.currency = currency;
-        if (description !== undefined) expense.description = description;
-        if (sales_tax_rate !== undefined) expense.sales_tax_rate = sales_tax_rate;
-        if (project !== undefined) expense.project = project;
-        if (rebill_type !== undefined) expense.rebill_type = rebill_type;
-        if (receipt_reference !== undefined) expense.receipt_reference = receipt_reference;
+          currency,
+          description,
+          sales_tax_rate,
+          project,
+          rebill_type,
+          receipt_reference,
+        });
         if (attachment_path !== undefined) expense.attachment = await readAttachment(attachment_path);
 
         const data = await client.postJson("/expenses", { expense });
@@ -161,14 +161,15 @@ export function registerExpenseTools(server: McpServer, client: FreeAgentClient)
     }) => {
       logToolCall("freeagent_update_expense", { expense_id, attachment_path });
       try {
-        const expense: Record<string, unknown> = {};
-        if (category !== undefined) expense.category = category;
-        if (dated_on !== undefined) expense.dated_on = dated_on;
-        if (gross_value !== undefined) expense.gross_value = gross_value;
-        if (description !== undefined) expense.description = description;
-        if (sales_tax_rate !== undefined) expense.sales_tax_rate = sales_tax_rate;
-        if (project !== undefined) expense.project = project;
-        if (receipt_reference !== undefined) expense.receipt_reference = receipt_reference;
+        const expense = definedOnly({
+          category,
+          dated_on,
+          gross_value,
+          description,
+          sales_tax_rate,
+          project,
+          receipt_reference,
+        });
         if (attachment_path !== undefined) expense.attachment = await readAttachment(attachment_path);
 
         const data = await client.putJson(`/expenses/${expense_id}`, { expense });

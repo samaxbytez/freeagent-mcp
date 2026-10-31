@@ -1,472 +1,158 @@
 # freeagent-mcp-server
 
+[![CI](https://github.com/samaxbytez/freeagent-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/samaxbytez/freeagent-mcp/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/freeagent-mcp-server.svg)](https://www.npmjs.com/package/freeagent-mcp-server)
+![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-5FA04E?logo=nodedotjs&logoColor=white)
+![MCP SDK 1.32](https://img.shields.io/badge/MCP_SDK-1.32-555555)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-MCP server for the [FreeAgent](https://www.freeagent.com/) accounting API. Provides 76 tools covering invoices, expenses, contacts, projects, timeslips, banking, bills, estimates, credit notes, accounting reports, and more. Four sensitive tools (user management and invoice emailing) are off by default — see [Sensitive tools](#sensitive-tools).
+<!-- The Node.js and MCP SDK badges are static: change them with package.json's engines and @modelcontextprotocol/sdk. -->
 
-## Features
+An [MCP](https://modelcontextprotocol.io) server that gives Claude, or any MCP
+client, the [FreeAgent](https://www.freeagent.com/) accounting API: 76 tools for
+invoices, expenses, bills, contacts, projects, timeslips, banking, estimates,
+credit notes and the accounting reports.
 
-- **OAuth2 Authentication** - Built-in browser-based auth flow with automatic token refresh
-- **Company** - Company info, business categories, tax timeline
-- **Users** - List, get, create, update, and delete users
-- **Contacts** - Full CRUD for clients and suppliers
-- **Projects** - Create and manage projects
-- **Tasks** - Manage project tasks with billing rates
-- **Timeslips** - Track time with start/stop timer support
-- **Invoices** - Create, send, and manage invoices with status transitions
-- **Estimates** - Quotes, estimates, and proposals with approval workflows
-- **Bills** - Manage supplier bills
-- **Credit Notes** - Issue and manage credit notes
-- **Expenses** - Track and categorize expenses
-- **Banking** - Bank accounts and transaction management
-- **Categories** - Browse accounting categories
-- **Accounting Reports** - Profit & loss, balance sheet, trial balance
+Text that comes back from FreeAgent, such as a bank transaction's reference, can
+be written by someone outside your business, so the server assumes it may carry
+instructions aimed at the model. Tools that could hand over account access or
+send data out of the account are **off by default**, every tool says whether it
+reads, writes or deletes, and receipts are only read from one folder you choose.
 
-## Prerequisites
+## Contents
 
-1. Sign up for a [FreeAgent Developer](https://dev.freeagent.com/) account
-2. Register an application in the Developer Dashboard
-3. Set the **OAuth redirect URI** to `http://localhost:3456/callback`
-4. Note your **Client ID** and **Client Secret**
+- [How it fits together](#how-it-fits-together)
+- [Quick start](#quick-start)
+- [What it can do](#what-it-can-do)
+- [Settings](#settings)
+- [Development](#development)
+- [Documentation](#documentation)
+- [Links](#links)
 
-See the [FreeAgent API Quick Start](https://dev.freeagent.com/docs/quick_start) for detailed instructions.
-
-## Getting Started
-
-### 1. Set environment variables
-
-```bash
-export FREEAGENT_CLIENT_ID="your_client_id"
-export FREEAGENT_CLIENT_SECRET="your_client_secret"
-# export FREEAGENT_SANDBOX=true  # uncomment to use sandbox instead of production
-```
-
-### 2. Authenticate (one-time)
-
-```bash
-npx freeagent-mcp-server auth
-```
-
-This opens your browser to authorize the app. The auth flow supports two modes:
-
-- **Automatic** (default) - A local server on port 3456 catches the OAuth redirect automatically. This is seamless when the port is available and the redirect URI is configured.
-- **Manual paste fallback** - If the redirect doesn't work (port busy, firewall, etc.), simply copy the full URL from your browser's address bar and paste it into the terminal. The URL will look like `http://localhost:3456/callback?code=...&state=...`.
-
-After approval, tokens are saved to `~/.freeagent-mcp/tokens.json` and automatically refreshed when they expire.
-
-### 3. Configure your MCP client
-
-See the [Configuration](#configuration) section below.
-
-## Installation
-
-> **Requirements:** Node.js 24 or later.
-
-### Using npx (recommended)
-
-```bash
-npx freeagent-mcp-server
-```
-
-### Global install
-
-```bash
-npm install -g freeagent-mcp-server
-freeagent-mcp
-```
-
-To pin a specific version, append `@<version>` (e.g. `npm install -g freeagent-mcp-server@2.0.0`).
-
-### Build from source
-
-```bash
-git clone https://github.com/samaxbytez/freeagent-mcp.git
-cd freeagent-mcp
-npm install
-npm run build
-npm start
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `FREEAGENT_CLIENT_ID` | Yes* | OAuth2 client ID from Developer Dashboard |
-| `FREEAGENT_CLIENT_SECRET` | Yes* | OAuth2 client secret from Developer Dashboard |
-| `FREEAGENT_SANDBOX` | No | Set to `true` for sandbox (defaults to production) |
-| `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
-| `FREEAGENT_BASE_URL` | No | Override API base URL |
-| `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | Set to `true` to register the [sensitive tools](#sensitive-tools) |
-| `FREEAGENT_ATTACHMENTS_DIR` | For attachments | Directory `attachment_path` may read from. Required to use attachments at all (see [Attachments](#attachments)) |
-
-*Not required if using `FREEAGENT_ACCESS_TOKEN` directly.
-
-### Sensitive tools
-
-Text that FreeAgent returns — bank transaction references, contact names, comments — can be written by third parties, so it can carry instructions aimed at the model (indirect prompt injection). Tools that could hand account access or company data to someone outside the account are therefore not registered unless `FREEAGENT_ENABLE_SENSITIVE_TOOLS=true`:
-
-- `freeagent_create_user`, `freeagent_update_user`, `freeagent_delete_user`
-- `freeagent_send_invoice_email`
-
-Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`) so clients can ask for confirmation before writes and deletes.
-
-### Pagination
-
-List tools accept `page` and `per_page` (default 25, max 100). Responses include a `pagination` object with `page`, `per_page`, `total_count`, and — when more results exist — `next_page` and `last_page`.
-
-### Claude Desktop / Cowork
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "freeagent": {
-      "command": "npx",
-      "args": ["-y", "freeagent-mcp-server"],
-      "env": {
-        "FREEAGENT_CLIENT_ID": "your_client_id",
-        "FREEAGENT_CLIENT_SECRET": "your_client_secret"
-      }
-    }
-  }
-}
-```
-
-This works with both Claude Desktop chat and Claude Cowork. Make sure to run `npx freeagent-mcp-server auth` in your terminal first to complete the one-time OAuth setup.
-
-### Claude Code
-
-Add to your `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "freeagent": {
-      "command": "npx",
-      "args": ["-y", "freeagent-mcp-server"],
-      "env": {
-        "FREEAGENT_CLIENT_ID": "your_client_id",
-        "FREEAGENT_CLIENT_SECRET": "your_client_secret"
-      }
-    }
-  }
-}
-```
-
-## Architecture
+## How it fits together
 
 ```
-freeagent-mcp/
-├── src/
-│   ├── index.ts              # Entry point, server setup
-│   ├── auth.ts               # OAuth2 flow, token storage & refresh
-│   ├── client.ts             # FreeAgent API HTTP client
-│   ├── policy.ts             # Tool annotations & sensitive-tool gating
-│   ├── utils.ts              # Shared utilities (responses, logging)
-│   ├── auth.test.ts          # Auth module tests
-│   ├── client.test.ts        # Client tests
-│   ├── utils.test.ts         # Utils tests
-│   └── tools/
-│       ├── company.ts        # Company info tools (3)
-│       ├── users.ts          # User management tools (6)
-│       ├── contacts.ts       # Contact CRUD tools (5)
-│       ├── projects.ts       # Project management tools (5)
-│       ├── tasks.ts          # Task management tools (5)
-│       ├── timeslips.ts      # Time tracking tools (7)
-│       ├── invoices.ts       # Invoice tools (9)
-│       ├── estimates.ts      # Estimate tools (7)
-│       ├── bills.ts          # Bill management tools (5)
-│       ├── credit-notes.ts   # Credit note tools (5)
-│       ├── expenses.ts       # Expense tracking tools (5)
-│       ├── banking.ts        # Banking tools (7)
-│       ├── categories.ts     # Category tools (2)
-│       ├── accounting.ts     # Accounting report tools (5)
-│       └── tools.test.ts     # Tool handler tests
-├── package.json
-├── tsconfig.json
-└── smithery.yaml
+Claude Desktop / Cowork / Claude Code ──stdio──▶ freeagent-mcp-server (Node.js, on your machine)
+                                                   ├─ 76 tools; sensitive ones only with FREEAGENT_ENABLE_SENSITIVE_TOOLS
+                                                   ├─ OAuth2 tokens in ~/.freeagent-mcp/tokens.json, refreshed automatically
+                                                   ├─ receipts read from FREEAGENT_ATTACHMENTS_DIR only
+                                                   └──HTTPS, your bearer token──▶ api.freeagent.com/v2 (or the sandbox)
 ```
 
-## Attachments
+The server runs locally, started by your MCP client, and talks to nothing but
+FreeAgent's API.
 
-`freeagent_create_expense`, `freeagent_update_expense`, `freeagent_create_bill` and
-`freeagent_update_bill` accept an optional `attachment_path` pointing at a receipt or
-invoice on local disk. The file is read by the server, base64-encoded and sent **in the
-same request** as the record itself, so an expense is never created without its receipt.
+## Quick start
 
-```jsonc
-{
-  "user": "https://api.freeagent.com/v2/users/1",
-  "category": "https://api.freeagent.com/v2/categories/270",
-  "dated_on": "2026-08-05",
-  "gross_value": "189.99",
-  "attachment_path": "./invoice.pdf"
-}
-```
+Node.js 24 or later, and a FreeAgent account. **New to this? Follow the
+step-by-step guide: [docs/setup.md](docs/setup.md).**
 
-PDF, PNG, JPEG and GIF only, 5MB maximum, which is what the FreeAgent API itself accepts.
+1. **Get a client ID and secret.** In the
+   [FreeAgent Developer Dashboard](https://dev.freeagent.com/), create an app
+   with the redirect URI `http://localhost:3456/callback`. Its **OAuth
+   identifier** is your client ID and its **OAuth secret** is your client secret.
+2. **Connect your FreeAgent account**, once, in a terminal. Your browser opens
+   FreeAgent: log in and approve the app.
 
-### `FREEAGENT_ATTACHMENTS_DIR` is required
+   ```bash
+   export FREEAGENT_CLIENT_ID="your_client_id"
+   export FREEAGENT_CLIENT_SECRET="your_client_secret"
+   npx freeagent-mcp-server auth
+   ```
 
-```bash
-export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
-```
+3. **Add it to Claude**: `claude_desktop_config.json` for Claude Desktop and
+   Cowork (on macOS in `~/Library/Application Support/Claude/`), `.mcp.json` for
+   Claude Code. Then restart the client.
 
-Without it, `attachment_path` is refused. This is the server's only local file read, and
-it is driven by a model whose inputs an attacker may influence, so it is scoped rather
-than open.
+   ```json
+   {
+     "mcpServers": {
+       "freeagent": {
+         "command": "npx",
+         "args": ["-y", "freeagent-mcp-server"],
+         "env": {
+           "FREEAGENT_CLIENT_ID": "your_client_id",
+           "FREEAGENT_CLIENT_SECRET": "your_client_secret"
+         }
+       }
+     }
+   }
+   ```
 
-The reason it is not merely advisory: an unrestricted read would reach any PDF, PNG or
-JPEG on the machine, which is where bank statements, contracts, scanned ID and
-screenshots of credentials live. Nor does the data stop in your own books. The API
-returns `attachment.content_src`, a pre-signed S3 URL that downloads with **no token**,
-and `freeagent_get_expense` returns it to the model. Scoping the read to one directory
-is what breaks that chain.
+Check it works by asking "Show me my FreeAgent company details", then try "List
+all overdue invoices". Every setting, the sandbox, and installing globally or
+from source: [docs/configuration.md](docs/configuration.md).
 
-Also enforced: symlinks and `..` are resolved before anything is judged, so a `.pdf`
-symlink pointing at a private key is rejected rather than uploaded; the root and
-extension are checked against the path as given before the filesystem is touched, so
-error messages cannot be used to probe what exists outside the root or which
-non-attachable files exist inside it; and only regular files are read.
+## What it can do
 
-## Tools Reference
+| Area | Tools | |
+| --- | --- | --- |
+| Company | 3 | Company details, business categories, tax timeline |
+| Users | 6 | List and look up users; create, update, delete (sensitive) |
+| Contacts | 5 | Clients and suppliers |
+| Projects, Tasks | 5, 5 | Projects and their billable tasks |
+| Timeslips | 7 | Time tracking, with a start/stop timer |
+| Invoices | 9 | Create, update, mark sent, draft or cancelled; email (sensitive) |
+| Estimates | 7 | Quotes, estimates and proposals, sent and approved |
+| Bills | 5 | Supplier bills, with a receipt attached |
+| Credit notes | 5 | Credit notes |
+| Expenses | 5 | Expenses, with a receipt attached |
+| Banking | 7 | Bank accounts and their transactions |
+| Categories | 2 | The chart of accounts |
+| Accounting | 5 | Profit and loss, balance sheet, trial balance |
 
-### Company (3 tools)
+List tools page through results (`page`, `per_page` up to 100). Every tool, its
+endpoint and example prompts: [docs/tools.md](docs/tools.md).
 
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_get_company` | Get company information | `GET /company` |
-| `freeagent_list_business_categories` | List business categories | `GET /company/business_categories` |
-| `freeagent_get_tax_timeline` | Get tax timeline | `GET /company/tax_timeline` |
+## Settings
 
-### Users (6 tools)
+| Variable | Required | What |
+| --- | --- | --- |
+| `FREEAGENT_CLIENT_ID`, `FREEAGENT_CLIENT_SECRET` | Yes | Your app's OAuth2 credentials |
+| `FREEAGENT_SANDBOX` | No | `true` to use the FreeAgent sandbox |
+| `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | `true` to turn on user management and invoice emailing |
+| `FREEAGENT_ATTACHMENTS_DIR` | To attach receipts | The one folder `attachment_path` may read from |
+| `FREEAGENT_ACCESS_TOKEN`, `FREEAGENT_BASE_URL` | No | Legacy direct token; API base override |
 
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_users` | List users with optional view filter | `GET /users` |
-| `freeagent_get_user` | Get a specific user | `GET /users/:id` |
-| `freeagent_get_current_user` | Get the authenticated user | `GET /users/me` |
-| `freeagent_create_user` | Create a new user | `POST /users` |
-| `freeagent_update_user` | Update a user | `PUT /users/:id` |
-| `freeagent_delete_user` | Delete a user | `DELETE /users/:id` |
-
-### Contacts (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_contacts` | List contacts with filtering and sorting | `GET /contacts` |
-| `freeagent_get_contact` | Get a specific contact | `GET /contacts/:id` |
-| `freeagent_create_contact` | Create a new contact | `POST /contacts` |
-| `freeagent_update_contact` | Update a contact | `PUT /contacts/:id` |
-| `freeagent_delete_contact` | Delete a contact | `DELETE /contacts/:id` |
-
-### Projects (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_projects` | List projects with optional view filter | `GET /projects` |
-| `freeagent_get_project` | Get a specific project | `GET /projects/:id` |
-| `freeagent_create_project` | Create a new project | `POST /projects` |
-| `freeagent_update_project` | Update a project | `PUT /projects/:id` |
-| `freeagent_delete_project` | Delete a project | `DELETE /projects/:id` |
-
-### Tasks (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_tasks` | List tasks with optional filtering | `GET /tasks` |
-| `freeagent_get_task` | Get a specific task | `GET /tasks/:id` |
-| `freeagent_create_task` | Create a new task for a project | `POST /tasks` |
-| `freeagent_update_task` | Update a task | `PUT /tasks/:id` |
-| `freeagent_delete_task` | Delete a task | `DELETE /tasks/:id` |
-
-### Timeslips (7 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_timeslips` | List timeslips with date and status filters | `GET /timeslips` |
-| `freeagent_get_timeslip` | Get a specific timeslip | `GET /timeslips/:id` |
-| `freeagent_create_timeslip` | Create a new timeslip | `POST /timeslips` |
-| `freeagent_update_timeslip` | Update a timeslip | `PUT /timeslips/:id` |
-| `freeagent_delete_timeslip` | Delete a timeslip | `DELETE /timeslips/:id` |
-| `freeagent_start_timer` | Start a timer on a timeslip | `POST /timeslips/:id/timer` |
-| `freeagent_stop_timer` | Stop a timer on a timeslip | `DELETE /timeslips/:id/timer` |
-
-### Invoices (9 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_invoices` | List invoices with view and contact filters | `GET /invoices` |
-| `freeagent_get_invoice` | Get a specific invoice | `GET /invoices/:id` |
-| `freeagent_create_invoice` | Create a new invoice | `POST /invoices` |
-| `freeagent_update_invoice` | Update an invoice | `PUT /invoices/:id` |
-| `freeagent_delete_invoice` | Delete an invoice | `DELETE /invoices/:id` |
-| `freeagent_mark_invoice_as_sent` | Mark invoice as sent | `PUT /invoices/:id/transitions/mark_as_sent` |
-| `freeagent_mark_invoice_as_draft` | Mark invoice as draft | `PUT /invoices/:id/transitions/mark_as_draft` |
-| `freeagent_mark_invoice_as_cancelled` | Cancel an invoice | `PUT /invoices/:id/transitions/mark_as_cancelled` |
-| `freeagent_send_invoice_email` | Email an invoice | `POST /invoices/:id/send_email` |
-
-### Estimates (7 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_estimates` | List estimates with filters | `GET /estimates` |
-| `freeagent_get_estimate` | Get a specific estimate | `GET /estimates/:id` |
-| `freeagent_create_estimate` | Create a new estimate | `POST /estimates` |
-| `freeagent_update_estimate` | Update an estimate | `PUT /estimates/:id` |
-| `freeagent_delete_estimate` | Delete an estimate | `DELETE /estimates/:id` |
-| `freeagent_mark_estimate_as_sent` | Mark estimate as sent | `PUT /estimates/:id/transitions/mark_as_sent` |
-| `freeagent_mark_estimate_as_approved` | Mark estimate as approved | `PUT /estimates/:id/transitions/mark_as_approved` |
-
-### Bills (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_bills` | List bills with view and date filters | `GET /bills` |
-| `freeagent_get_bill` | Get a specific bill | `GET /bills/:id` |
-| `freeagent_create_bill` | Create a new bill | `POST /bills` |
-| `freeagent_update_bill` | Update a bill | `PUT /bills/:id` |
-| `freeagent_delete_bill` | Delete a bill | `DELETE /bills/:id` |
-
-### Credit Notes (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_credit_notes` | List credit notes with filters | `GET /credit_notes` |
-| `freeagent_get_credit_note` | Get a specific credit note | `GET /credit_notes/:id` |
-| `freeagent_create_credit_note` | Create a new credit note | `POST /credit_notes` |
-| `freeagent_update_credit_note` | Update a credit note | `PUT /credit_notes/:id` |
-| `freeagent_delete_credit_note` | Delete a credit note | `DELETE /credit_notes/:id` |
-
-### Expenses (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_expenses` | List expenses with date and project filters | `GET /expenses` |
-| `freeagent_get_expense` | Get a specific expense | `GET /expenses/:id` |
-| `freeagent_create_expense` | Create a new expense | `POST /expenses` |
-| `freeagent_update_expense` | Update an expense | `PUT /expenses/:id` |
-| `freeagent_delete_expense` | Delete an expense | `DELETE /expenses/:id` |
-
-### Banking (7 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_bank_accounts` | List bank accounts | `GET /bank_accounts` |
-| `freeagent_get_bank_account` | Get a specific bank account | `GET /bank_accounts/:id` |
-| `freeagent_create_bank_account` | Create a new bank account | `POST /bank_accounts` |
-| `freeagent_update_bank_account` | Update a bank account | `PUT /bank_accounts/:id` |
-| `freeagent_delete_bank_account` | Delete a bank account | `DELETE /bank_accounts/:id` |
-| `freeagent_list_bank_transactions` | List transactions for a bank account | `GET /bank_transactions` |
-| `freeagent_get_bank_transaction` | Get a specific bank transaction | `GET /bank_transactions/:id` |
-
-### Categories (2 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_list_categories` | List all accounting categories | `GET /categories` |
-| `freeagent_get_category` | Get a specific category by nominal code | `GET /categories/:nominal_code` |
-
-### Accounting Reports (5 tools)
-
-| Tool | Description | API Endpoint |
-|------|-------------|-------------|
-| `freeagent_get_profit_and_loss` | Get profit and loss summary | `GET /accounting/profit_and_loss/summary` |
-| `freeagent_get_balance_sheet` | Get balance sheet | `GET /accounting/balance_sheet` |
-| `freeagent_get_opening_balances` | Get opening balances | `GET /accounting/balance_sheet/opening_balances` |
-| `freeagent_get_trial_balance` | Get trial balance summary | `GET /accounting/trial_balance/summary` |
-| `freeagent_get_trial_balance_opening` | Get trial balance opening balances | `GET /accounting/trial_balance/summary/opening_balances` |
-
-## Example Prompts
-
-- "Show me the company information from FreeAgent"
-- "List all active contacts"
-- "Create a new invoice for contact 12345 dated today with 30 day payment terms"
-- "How much time did I log this week?"
-- "Start a timer on timeslip 67890"
-- "Show my profit and loss for the current year"
-- "List all overdue invoices"
-- "Create an expense for lunch at $25 under the entertainment category"
-- "What's my current balance sheet?"
-- "List all open bills from suppliers"
+Why the sensitive tools are off and how attachments are confined:
+[docs/security.md](docs/security.md). Something not working:
+[docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Type check
-npm run type-check
-
-# Run tests
-npm test
-
-# Run tests in watch mode
-npm run test:watch
-
-# Build
-npm run build
-
-# Lint
-npm run lint
-
-# Format
-npm run format
+npm run lint && npm run type-check && npm test && npm run build
 ```
 
-### Adding New Tools
+CI runs the same on Node 24 for every pull request (`test (24)`, required on
+`main`). Commits and PR titles are conventional (`feat:`, `fix:`, `docs:` and so
+on); `main` squash-merges, so the PR title is the commit. Releases are opened by
+hand with `/release`, and merging the release PR publishes to npm
+([RELEASING.md](RELEASING.md)). [AGENTS.md](AGENTS.md) has the rules that don't
+bend; what's where and adding a tool: [docs/development.md](docs/development.md).
 
-1. Create a new file in `src/tools/` (or add to an existing one)
-2. Follow the pattern: export a `registerXxxTools(server, client)` function
-3. Register each tool with `server.tool()` or `server.registerTool()`
-4. Always use `logToolCall()`, `jsonResponse()`, and `errorResponse()`
-5. Import and call the register function in `src/index.ts`
-6. Add tests in `src/tools/tools.test.ts`
+## Documentation
 
-## Troubleshooting
+The whole map is [docs/README.md](docs/README.md).
 
-**"Missing credentials" error on startup**
-Set `FREEAGENT_CLIENT_ID` and `FREEAGENT_CLIENT_SECRET` environment variables, then run `npx freeagent-mcp-server auth` to authenticate.
+| Doc | What |
+| --- | --- |
+| [docs/setup.md](docs/setup.md) | Step by step: client ID and secret, connecting your account, adding it to Claude |
+| [docs/configuration.md](docs/configuration.md) | Every setting, signing in, the sandbox, client config |
+| [docs/tools.md](docs/tools.md) | All 76 tools, pagination, annotations, example prompts |
+| [docs/security.md](docs/security.md) | The threat model, sensitive tools, attachments, tokens |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors and fixes |
+| [docs/development.md](docs/development.md) | Building, testing, what's where, adding a tool |
+| [AGENTS.md](AGENTS.md) | How to work here, and the rules that don't bend |
+| [RELEASING.md](RELEASING.md) | The release procedure |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in each version |
 
-**"No stored tokens found"**
-You need to complete the one-time auth flow first: `npx freeagent-mcp-server auth`
+## Links
 
-**Authentication times out**
-If the automatic redirect doesn't work, copy the full URL from your browser's address bar after approving and paste it into the terminal. Ensure your FreeAgent app's redirect URI is set to `http://localhost:3456/callback`.
-
-**Port 3456 is busy**
-The auth flow will automatically fall back to manual paste mode. Just paste the redirect URL from your browser after approving.
-
-**401 Unauthorized errors**
-Your tokens may have been revoked. Re-run `npx freeagent-mcp-server auth` to re-authenticate.
-
-**"FreeAgent API error (403)"**
-Your token may not have the required permission level. Check that your FreeAgent app has the appropriate access scopes.
-
-**Sandbox vs Production**
-By default the server connects to the FreeAgent production API. Set `FREEAGENT_SANDBOX=true` to use the sandbox.
-
-**Tool not found**
-Ensure you're using the correct tool name with the `freeagent_` prefix (e.g., `freeagent_list_invoices`, not `list_invoices`).
-
-**Empty responses**
-Some endpoints return empty responses for successful DELETE operations. This is expected behavior.
-
-## Releasing
-
-Releases are automated from [Conventional Commits](https://www.conventionalcommits.org/) —
-see [RELEASING.md](RELEASING.md). In short: merging `feat:`/`fix:` PRs to `main`
-opens a release PR (version bump + changelog); merging that PR publishes to npm.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for the release history. The latest published
-version is shown by the npm badge at the top of this README.
+- [npm package](https://www.npmjs.com/package/freeagent-mcp-server)
+- [FreeAgent API docs](https://dev.freeagent.com/docs) and [quick start](https://dev.freeagent.com/docs/quick_start)
+- [Issues](https://github.com/samaxbytez/freeagent-mcp/issues)
 
 ## License
 

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 import { readAttachment, attachmentPathSchema } from "../attachment.js";
 
 export function registerBillTools(server: McpServer, client: FreeAgentClient): void {
@@ -40,10 +40,10 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
         .describe("Whether to include nested bill items in the response"),
       ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page }) => {
-      logToolCall("freeagent_list_bills", { view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_bills", args);
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, contact, project, nested_bill_items, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/bills", params);
         return listResponse(data);
       } catch (error) {
@@ -90,15 +90,15 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
       logToolCall("freeagent_create_bill", { contact, reference, dated_on, due_on, attachment_path });
       try {
         const parsedItems = JSON.parse(bill_items);
-        const bill: Record<string, unknown> = {
+        const bill = definedOnly({
           contact,
           reference,
           dated_on,
           due_on,
           bill_items: parsedItems,
-        };
-        if (currency !== undefined) bill.currency = currency;
-        if (comments !== undefined) bill.comments = comments;
+          currency,
+          comments,
+        });
         if (attachment_path !== undefined) bill.attachment = await readAttachment(attachment_path);
 
         const data = await client.postJson("/bills", { bill });
@@ -124,10 +124,7 @@ export function registerBillTools(server: McpServer, client: FreeAgentClient): v
     async ({ bill_id, attachment_path, ...rest }) => {
       logToolCall("freeagent_update_bill", { bill_id, ...rest, attachment_path });
       try {
-        const bill: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rest)) {
-          if (v !== undefined) bill[k] = v;
-        }
+        const bill = definedOnly(rest);
         // Destructured out of `rest` above: this is a local path, not a bill field.
         if (attachment_path !== undefined) bill.attachment = await readAttachment(attachment_path);
         const data = await client.putJson(`/bills/${bill_id}`, { bill });

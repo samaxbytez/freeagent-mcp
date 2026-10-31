@@ -2,37 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { FreeAgentClient } from "../client.js";
+import { createMockServer, createMockClient } from "./test-helpers.js";
 import { registerExpenseTools } from "./expenses.js";
 import { registerBillTools } from "./bills.js";
-
-type ToolHandler = (...args: any[]) => any;
-
-function createMockServer() {
-  const tools = new Map<string, ToolHandler>();
-  return {
-    server: {
-      registerTool: vi.fn((name: string, _config: unknown, cb: ToolHandler) => {
-        tools.set(name, cb);
-      }),
-      tool: vi.fn((...args: any[]) => {
-        const name = args[0] as string;
-        const cb = typeof args[2] === "function" ? args[2] : args[3];
-        tools.set(name, cb);
-      }),
-    } as any,
-    tools,
-  };
-}
-
-function createMockClient() {
-  return {
-    get: vi.fn().mockResolvedValue({ data: "mock" }),
-    postJson: vi.fn().mockResolvedValue({ data: "mock" }),
-    putJson: vi.fn().mockResolvedValue({ data: "mock" }),
-    deleteReq: vi.fn().mockResolvedValue({ data: "mock" }),
-  } as unknown as FreeAgentClient;
-}
 
 const PDF_BYTES = Buffer.from("%PDF-1.4 receipt", "utf8");
 

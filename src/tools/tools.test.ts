@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { FreeAgentClient } from "../client.js";
+import { describe, it, expect, vi } from "vitest";
+import { createMockServer, createMockClient, silenceToolLogs, type ToolHandler } from "./test-helpers.js";
 import { registerCompanyTools } from "./company.js";
 import { registerContactTools } from "./contacts.js";
 import { registerInvoiceTools } from "./invoices.js";
@@ -16,51 +16,7 @@ import { registerCreditNoteTools } from "./credit-notes.js";
 import { registerCategoryTools } from "./categories.js";
 import type { ZodTypeAny } from "zod";
 
-type ToolHandler = (...args: any[]) => any;
-
-function createMockServer() {
-  const tools = new Map<string, ToolHandler>();
-  return {
-    server: {
-      // New API: server.registerTool(name, config, handler)
-      registerTool: vi.fn(
-        (name: string, _config: unknown, cb: ToolHandler) => {
-          tools.set(name, cb);
-        }
-      ),
-      // Old convenience API: server.tool(name, desc, handler) or server.tool(name, desc, schema, handler)
-      tool: vi.fn((...args: any[]) => {
-        const name = args[0] as string;
-        const cb = typeof args[2] === "function" ? args[2] : args[3];
-        tools.set(name, cb);
-      }),
-    } as any,
-    tools,
-  };
-}
-
-function createMockClient() {
-  return {
-    get: vi.fn().mockResolvedValue({ data: "mock" }),
-    getList: vi.fn().mockResolvedValue({ data: { data: "mock" }, pagination: { page: 1, per_page: 25 } }),
-    postJson: vi.fn().mockResolvedValue({ data: "mock" }),
-    putJson: vi.fn().mockResolvedValue({ data: "mock" }),
-    postForm: vi.fn().mockResolvedValue({ data: "mock" }),
-    putForm: vi.fn().mockResolvedValue({ data: "mock" }),
-    patchJson: vi.fn().mockResolvedValue({ data: "mock" }),
-    deleteReq: vi.fn().mockResolvedValue({ data: "mock" }),
-  } as unknown as FreeAgentClient;
-}
-
-let errorSpy: ReturnType<typeof vi.spyOn>;
-
-beforeEach(() => {
-  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-});
-
-afterEach(() => {
-  errorSpy.mockRestore();
-});
+silenceToolLogs();
 
 describe("registerCompanyTools", () => {
   it("registers 3 tools", () => {

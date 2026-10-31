@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerEstimateTools(server: McpServer, client: FreeAgentClient): void {
   // List estimates
@@ -24,10 +24,10 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
       project: z.string().optional().describe("Filter by project URL"),
       ...paginationParams,
     },
-    async ({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page }) => {
-      logToolCall("freeagent_list_estimates", { view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_estimates", args);
       try {
-        const params = buildParams({ view, from_date, to_date, updated_since, nested_estimate_items, contact, project, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/estimates", params);
         return listResponse(data);
       } catch (error) {
@@ -88,15 +88,15 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     }) => {
       logToolCall("freeagent_create_estimate", { contact, estimate_type, dated_on, currency });
       try {
-        const estimate: Record<string, unknown> = {
+        const estimate = definedOnly({
           contact,
           estimate_type,
           dated_on,
           currency,
-        };
-        if (reference !== undefined) estimate.reference = reference;
-        if (payment_terms_in_days !== undefined) estimate.payment_terms_in_days = payment_terms_in_days;
-        if (comments !== undefined) estimate.comments = comments;
+          reference,
+          payment_terms_in_days,
+          comments,
+        });
         if (estimate_items !== undefined) estimate.estimate_items = JSON.parse(estimate_items);
 
         const data = await client.postJson("/estimates", { estimate });
@@ -124,10 +124,7 @@ export function registerEstimateTools(server: McpServer, client: FreeAgentClient
     async ({ estimate_id, ...rest }) => {
       logToolCall("freeagent_update_estimate", { estimate_id, ...rest });
       try {
-        const estimate: Record<string, unknown> = {};
-        for (const [k, v] of Object.entries(rest)) {
-          if (v !== undefined) estimate[k] = v;
-        }
+        const estimate = definedOnly(rest);
         const data = await client.putJson(`/estimates/${estimate_id}`, { estimate });
         return jsonResponse(data);
       } catch (error) {

@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerContactTools(server: McpServer, client: FreeAgentClient): void {
   server.tool(
@@ -32,10 +32,10 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
         .describe("Only return contacts updated since this ISO 8601 date"),
       ...paginationParams,
     },
-    async ({ view, sort, updated_since, page, per_page }) => {
-      logToolCall("freeagent_list_contacts", { view, sort, updated_since, page, per_page });
+    async (args) => {
+      logToolCall("freeagent_list_contacts", args);
       try {
-        const params = buildParams({ view, sort, updated_since, page, per_page });
+        const params = buildParams(args);
         const data = await client.getList("/contacts", params);
         return listResponse(data);
       } catch (error) {
@@ -102,20 +102,20 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
         email,
       });
       try {
-        const contact: Record<string, unknown> = {};
-        if (first_name !== undefined) contact.first_name = first_name;
-        if (last_name !== undefined) contact.last_name = last_name;
-        if (organisation_name !== undefined) contact.organisation_name = organisation_name;
-        if (email !== undefined) contact.email = email;
-        if (phone_number !== undefined) contact.phone_number = phone_number;
-        if (address1 !== undefined) contact.address1 = address1;
-        if (address2 !== undefined) contact.address2 = address2;
-        if (address3 !== undefined) contact.address3 = address3;
-        if (town !== undefined) contact.town = town;
-        if (postcode !== undefined) contact.postcode = postcode;
-        if (country !== undefined) contact.country = country;
-        if (default_payment_terms_in_days !== undefined)
-          contact.default_payment_terms_in_days = default_payment_terms_in_days;
+        const contact = definedOnly({
+          first_name,
+          last_name,
+          organisation_name,
+          email,
+          phone_number,
+          address1,
+          address2,
+          address3,
+          town,
+          postcode,
+          country,
+          default_payment_terms_in_days,
+        });
 
         const data = await client.postJson("/contacts", { contact });
         return jsonResponse(data);
@@ -163,20 +163,20 @@ export function registerContactTools(server: McpServer, client: FreeAgentClient)
     }) => {
       logToolCall("freeagent_update_contact", { contact_id });
       try {
-        const contact: Record<string, unknown> = {};
-        if (first_name !== undefined) contact.first_name = first_name;
-        if (last_name !== undefined) contact.last_name = last_name;
-        if (organisation_name !== undefined) contact.organisation_name = organisation_name;
-        if (email !== undefined) contact.email = email;
-        if (phone_number !== undefined) contact.phone_number = phone_number;
-        if (address1 !== undefined) contact.address1 = address1;
-        if (address2 !== undefined) contact.address2 = address2;
-        if (address3 !== undefined) contact.address3 = address3;
-        if (town !== undefined) contact.town = town;
-        if (postcode !== undefined) contact.postcode = postcode;
-        if (country !== undefined) contact.country = country;
-        if (default_payment_terms_in_days !== undefined)
-          contact.default_payment_terms_in_days = default_payment_terms_in_days;
+        const contact = definedOnly({
+          first_name,
+          last_name,
+          organisation_name,
+          email,
+          phone_number,
+          address1,
+          address2,
+          address3,
+          town,
+          postcode,
+          country,
+          default_payment_terms_in_days,
+        });
 
         const data = await client.putJson(`/contacts/${contact_id}`, { contact });
         return jsonResponse(data);

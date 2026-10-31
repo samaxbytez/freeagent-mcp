@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { FreeAgentClient } from "../client.js";
-import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams } from "../utils.js";
+import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
 
 export function registerTimeslipTools(
   server: McpServer,
@@ -49,17 +49,7 @@ export function registerTimeslipTools(
     async (args) => {
       logToolCall("freeagent_list_timeslips", args);
       try {
-        const params = buildParams({
-          from_date: args.from_date,
-          to_date: args.to_date,
-          updated_since: args.updated_since,
-          view: args.view,
-          user: args.user,
-          task: args.task,
-          project: args.project,
-          page: args.page,
-          per_page: args.per_page,
-        });
+        const params = buildParams(args);
         const response = await client.getList("/timeslips", params);
         return listResponse(response);
       } catch (error) {
@@ -108,16 +98,7 @@ export function registerTimeslipTools(
     async (args) => {
       logToolCall("freeagent_create_timeslip", args);
       try {
-        const timeslip: Record<string, unknown> = {
-          user: args.user,
-          project: args.project,
-          task: args.task,
-          dated_on: args.dated_on,
-          hours: args.hours,
-        };
-        if (args.comment !== undefined) {
-          timeslip.comment = args.comment;
-        }
+        const timeslip = definedOnly(args);
         const response = await client.postJson("/timeslips", { timeslip });
         return jsonResponse(response);
       } catch (error) {
@@ -149,11 +130,12 @@ export function registerTimeslipTools(
     async (args) => {
       logToolCall("freeagent_update_timeslip", args);
       try {
-        const timeslip: Record<string, unknown> = {};
-        if (args.dated_on !== undefined) timeslip.dated_on = args.dated_on;
-        if (args.hours !== undefined) timeslip.hours = args.hours;
-        if (args.comment !== undefined) timeslip.comment = args.comment;
-        if (args.task !== undefined) timeslip.task = args.task;
+        const timeslip = definedOnly({
+          dated_on: args.dated_on,
+          hours: args.hours,
+          comment: args.comment,
+          task: args.task,
+        });
         const response = await client.putJson(
           `/timeslips/${args.timeslip_id}`,
           { timeslip }

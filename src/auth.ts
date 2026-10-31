@@ -20,7 +20,12 @@ export interface StoredTokens {
 }
 
 const TOKEN_DIR = join(homedir(), ".freeagent-mcp");
-const TOKEN_FILE = join(TOKEN_DIR, "tokens.json");
+
+// One file per environment: a shared file let a sandbox sign-in overwrite the
+// production tokens (and vice versa), so the next request went to the wrong API.
+export function tokenFile(sandbox: boolean): string {
+  return join(TOKEN_DIR, sandbox ? "tokens.sandbox.json" : "tokens.json");
+}
 const CALLBACK_PORT = 3456;
 const AUTH_TIMEOUT_MS = 120_000;
 
@@ -30,24 +35,25 @@ export function getApiBase(sandbox: boolean): string {
     : "https://api.freeagent.com/v2";
 }
 
-export function loadTokens(): StoredTokens | null {
+export function loadTokens(sandbox = false): StoredTokens | null {
   try {
-    const data = readFileSync(TOKEN_FILE, "utf-8");
+    const data = readFileSync(tokenFile(sandbox), "utf-8");
     return JSON.parse(data) as StoredTokens;
   } catch {
     return null;
   }
 }
 
-export function saveTokens(tokens: StoredTokens): void {
+export function saveTokens(tokens: StoredTokens, sandbox = false): void {
+  const file = tokenFile(sandbox);
   mkdirSync(TOKEN_DIR, { recursive: true, mode: 0o700 });
-  writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+  writeFileSync(file, JSON.stringify(tokens, null, 2), { mode: 0o600 });
   try {
     // mkdirSync's mode only applies when it creates the directory, so tighten a
     // pre-existing one too. Same for the file: writeFileSync's mode only applies
     // on creation.
     chmodSync(TOKEN_DIR, 0o700);
-    chmodSync(TOKEN_FILE, 0o600);
+    chmodSync(file, 0o600);
   } catch {
     // chmod may fail on some platforms, file was already created with mode
   }
@@ -57,30 +63,30 @@ export function isTokenExpired(tokens: StoredTokens): boolean {
   return Date.now() >= tokens.expires_at - TOKEN_BUFFER_MS;
 }
 
-export async function refreshAccessToken(
+// Both the code exchange and the refresh are a Basic-auth POST to the token
+// endpoint; only the grant parameters and the error wording differ.
+async function requestTokens(
   config: OAuthConfig,
-  refreshToken: string
+  grant: Record<string, string>,
+  failure: string
 ): Promise<StoredTokens> {
-  const base = getApiBase(config.sandbox);
   const credentials = Buffer.from(
     `${config.clientId}:${config.clientSecret}`
   ).toString("base64");
 
-  const response = await fetch(`${base}/token_endpoint`, {
+  const response = await fetch(`${getApiBase(config.sandbox)}/token_endpoint`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${credentials}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }).toString(),
+    body: new URLSearchParams(grant).toString(),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Token refresh failed (${response.status}): ${text}`);
+    throw new Error(`${failure} (${response.status}): ${text}`);
   }
 
   const data = (await response.json()) as {
@@ -96,15 +102,27 @@ export async function refreshAccessToken(
   };
 }
 
+export function refreshAccessToken(
+  config: OAuthConfig,
+  refreshToken: string
+): Promise<StoredTokens> {
+  return requestTokens(
+    config,
+    { grant_type: "refresh_token", refresh_token: refreshToken },
+    "Token refresh failed"
+  );
+}
+
 let refreshPromise: Promise<StoredTokens> | null = null;
 
 export async function getValidAccessToken(
   config: OAuthConfig
 ): Promise<string> {
-  const tokens = loadTokens();
+  const tokens = loadTokens(config.sandbox);
   if (!tokens) {
+    const sandbox = config.sandbox ? "FREEAGENT_SANDBOX=true " : "";
     throw new Error(
-      "No stored tokens found. Run `npx freeagent-mcp-server auth` to authenticate."
+      `No stored tokens found. Run \`${sandbox}npx freeagent-mcp-server auth\` to authenticate.`
     );
   }
 
@@ -121,7 +139,7 @@ export async function getValidAccessToken(
   try {
     refreshPromise = refreshAccessToken(config, tokens.refresh_token);
     const newTokens = await refreshPromise;
-    saveTokens(newTokens);
+    saveTokens(newTokens, config.sandbox);
     return newTokens.access_token;
   } finally {
     refreshPromise = null;
@@ -151,44 +169,19 @@ export function openBrowser(url: string): void {
   }
 }
 
-async function exchangeCodeForTokens(
+function exchangeCodeForTokens(
   config: OAuthConfig,
   code: string
 ): Promise<StoredTokens> {
-  const base = getApiBase(config.sandbox);
-  const credentials = Buffer.from(
-    `${config.clientId}:${config.clientSecret}`
-  ).toString("base64");
-
-  const response = await fetch(`${base}/token_endpoint`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
+  return requestTokens(
+    config,
+    {
       grant_type: "authorization_code",
       code,
       redirect_uri: `http://localhost:${CALLBACK_PORT}/callback`,
-    }).toString(),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Token exchange failed (${response.status}): ${text}`);
-  }
-
-  const data = (await response.json()) as {
-    access_token: string;
-    refresh_token: string;
-    expires_in: number;
-  };
-
-  return {
-    access_token: data.access_token,
-    refresh_token: data.refresh_token,
-    expires_at: Date.now() + data.expires_in * 1000,
-  };
+    },
+    "Token exchange failed"
+  );
 }
 
 export function parseCallbackUrl(
@@ -249,7 +242,7 @@ export async function runAuthFlow(config: OAuthConfig): Promise<void> {
       settled = true;
       try {
         const tokens = await exchangeCodeForTokens(config, code);
-        saveTokens(tokens);
+        saveTokens(tokens, config.sandbox);
         cleanup();
         resolve();
       } catch (err) {
