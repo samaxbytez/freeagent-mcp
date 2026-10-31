@@ -44,12 +44,15 @@ FreeAgent's API.
 
 ## Quick start
 
-Node.js 24 or later.
+Node.js 24 or later, and a FreeAgent account. **New to this? Follow the
+step-by-step guide: [docs/setup.md](docs/setup.md).**
 
-1. In the [FreeAgent Developer Dashboard](https://dev.freeagent.com/), register an
-   app with the redirect URI `http://localhost:3456/callback`, and note its client
-   ID and secret.
-2. Sign in once, in a terminal:
+1. **Get a client ID and secret.** In the
+   [FreeAgent Developer Dashboard](https://dev.freeagent.com/), create an app
+   with the redirect URI `http://localhost:3456/callback`. Its **OAuth
+   identifier** is your client ID and its **OAuth secret** is your client secret.
+2. **Connect your FreeAgent account**, once, in a terminal. Your browser opens
+   FreeAgent: log in and approve the app.
 
    ```bash
    export FREEAGENT_CLIENT_ID="your_client_id"
@@ -57,8 +60,9 @@ Node.js 24 or later.
    npx freeagent-mcp-server auth
    ```
 
-3. Add the server to your client (`claude_desktop_config.json` for Claude Desktop
-   and Cowork, `.mcp.json` for Claude Code):
+3. **Add it to Claude**: `claude_desktop_config.json` for Claude Desktop and
+   Cowork (on macOS in `~/Library/Application Support/Claude/`), `.mcp.json` for
+   Claude Code. Then restart the client.
 
    ```json
    {
@@ -75,9 +79,9 @@ Node.js 24 or later.
    }
    ```
 
-Then ask "List all overdue invoices" or "Show my profit and loss for this year".
-Signing in, the sandbox, and installing globally or from source:
-[docs/configuration.md](docs/configuration.md).
+Check it works by asking "Show me my FreeAgent company details", then try "List
+all overdue invoices". Every setting, the sandbox, and installing globally or
+from source: [docs/configuration.md](docs/configuration.md).
 
 ## What it can do
 
@@ -134,6 +138,7 @@ The whole map is [docs/README.md](docs/README.md).
 
 | Doc | What |
 | --- | --- |
+| [docs/setup.md](docs/setup.md) | Step by step: client ID and secret, connecting your account, adding it to Claude |
 | [docs/configuration.md](docs/configuration.md) | Every setting, signing in, the sandbox, client config |
 | [docs/tools.md](docs/tools.md) | All 76 tools, pagination, annotations, example prompts |
 | [docs/security.md](docs/security.md) | The threat model, sensitive tools, attachments, tokens |

@@ -1,5 +1,8 @@
 # Configuration
 
+Setting up for the first time? Follow [setup.md](setup.md) instead: this page is
+the reference.
+
 ## Installing
 
 Node.js 24 or later. Your MCP client normally starts the server with `npx`, so
