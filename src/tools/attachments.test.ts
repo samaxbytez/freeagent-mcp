@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, readFile, readdir, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createMockServer, createMockClient } from "./test-helpers.js";
 import { registerExpenseTools } from "./expenses.js";
 import { registerBillTools } from "./bills.js";
+import { registerAttachmentTools } from "./attachments.js";
 
 const PDF_BYTES = Buffer.from("%PDF-1.4 receipt", "utf8");
 
@@ -147,5 +148,77 @@ describe("attachment_path on bill tools", () => {
     expect(body.bill.attachment_path).toBeUndefined();
     expect(body.bill.attachment.file_name).toBe("invoice.pdf");
     expect(body.bill.reference).toBe("INV-2");
+  });
+});
+
+describe("freeagent_download_attachment", () => {
+  const LINK = "https://s3.eu-west-1.amazonaws.com/fa/receipt.pdf?X-Amz-Signature=abc";
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(PDF_BYTES, { status: 200 }));
+  });
+  afterEach(() => fetchSpy.mockRestore());
+
+  async function download(fileName: string, link = LINK) {
+    const { server, tools } = createMockServer();
+    const client = createMockClient();
+    (client.get as any).mockResolvedValue({
+      attachment: { content_src: link, file_name: fileName, content_type: "application/pdf" },
+    });
+    registerAttachmentTools(server, client);
+    const res = await tools.get("freeagent_download_attachment")!({ attachment_id: "82857621" });
+    return { res, client };
+  }
+
+  it("saves the file into the attachment dir and never returns the link", async () => {
+    const { res, client } = await download("laptop.pdf");
+    expect(client.get).toHaveBeenCalledWith("/attachments/82857621");
+    expect(res.isError).toBeUndefined();
+    expect(res.content[0].text).not.toContain("X-Amz-Signature");
+    const out = JSON.parse(res.content[0].text);
+    expect(await readFile(out.saved_to)).toEqual(PDF_BYTES);
+    expect(path.dirname(out.saved_to)).toBe(await realpath(dir));
+  });
+
+  it("fetches the pre-signed link without any Authorization header", async () => {
+    await download("laptop.pdf");
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
+    expect(JSON.stringify(init?.headers ?? {})).not.toMatch(/authorization/i);
+  });
+
+  it("never overwrites an existing file", async () => {
+    const { res } = await download("invoice.pdf");
+    const out = JSON.parse(res.content[0].text);
+    expect(path.basename(out.saved_to)).toBe("invoice (1).pdf");
+    expect(await readFile(pdf)).toEqual(PDF_BYTES);
+  });
+
+  it("keeps a traversal file name inside the dir", async () => {
+    const { res } = await download("../../evil.pdf");
+    const out = JSON.parse(res.content[0].text);
+    expect(path.dirname(out.saved_to)).toBe(await realpath(dir));
+    expect(path.basename(out.saved_to)).toBe("evil.pdf");
+  });
+
+  it("refuses a file type that could not be attached", async () => {
+    const { res } = await download("payload.sh");
+    expect(res.isError).toBe(true);
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("refuses a non-https link", async () => {
+    const { res } = await download("laptop.pdf", "http://example.com/x.pdf");
+    expect(res.isError).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses to write when FREEAGENT_ATTACHMENTS_DIR is unset", async () => {
+    delete process.env.FREEAGENT_ATTACHMENTS_DIR;
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/requires FREEAGENT_ATTACHMENTS_DIR/);
   });
 });

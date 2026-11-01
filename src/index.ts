@@ -20,6 +20,7 @@ import { registerExpenseTools } from "./tools/expenses.js";
 import { registerBankingTools } from "./tools/banking.js";
 import { registerCategoryTools } from "./tools/categories.js";
 import { registerAccountingTools } from "./tools/accounting.js";
+import { registerAttachmentTools } from "./tools/attachments.js";
 
 // Inlined from package.json by scripts/bundle.mjs.
 declare const PACKAGE_VERSION: string;
@@ -110,6 +111,7 @@ if (process.argv[2] === "auth") {
   registerBankingTools(tools, client);
   registerCategoryTools(tools, client);
   registerAccountingTools(tools, client);
+  registerAttachmentTools(tools, client);
 
   async function main() {
     const transport = new StdioServerTransport();

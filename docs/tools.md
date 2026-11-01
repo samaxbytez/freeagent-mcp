@@ -1,6 +1,6 @@
 # Tools
 
-76 tools, one file per FreeAgent resource in `src/tools/`. Every tool name starts
+77 tools, one file per FreeAgent resource in `src/tools/`. Every tool name starts
 with `freeagent_`. The counts in the headings come from the `server.tool(` and
 `server.registerTool(` calls in each file; run `/sync-tool-count` after adding,
 removing or renaming one.
@@ -163,6 +163,12 @@ default: see [security.md](security.md#sensitive-tools).
 | `freeagent_get_opening_balances` | Get opening balances | `GET /accounting/balance_sheet/opening_balances` |
 | `freeagent_get_trial_balance` | Get trial balance summary | `GET /accounting/trial_balance/summary` |
 | `freeagent_get_trial_balance_opening` | Get trial balance opening balances | `GET /accounting/trial_balance/summary/opening_balances` |
+
+## Attachments (1 tool)
+
+| Tool | Description | API Endpoint |
+|------|-------------|-------------|
+| `freeagent_download_attachment` | Save an attachment (receipt or invoice) into `FREEAGENT_ATTACHMENTS_DIR`; never overwrites, never returns the pre-signed link | `GET /attachments/:id` |
 
 ## Example prompts
 
