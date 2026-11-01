@@ -89,29 +89,10 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     throw new Error("attachment_path must not be empty");
   }
 
-  const confineTo = process.env.FREEAGENT_ATTACHMENTS_DIR;
-  if (!confineTo || confineTo.trim() === "") {
-    throw new Error(
-      "attachment_path requires FREEAGENT_ATTACHMENTS_DIR to be set to the directory " +
-        "receipts live in. Attachments are not read from arbitrary paths."
-    );
-  }
-
-  let root: string;
-  try {
-    root = await realpath(confineTo);
-  } catch {
-    throw new Error("FREEAGENT_ATTACHMENTS_DIR is set to a path that does not exist");
-  }
-  // A root this broad makes confinement meaningless: every PDF or image on the
-  // machine (or in the user's home) would be attachable. That includes any folder
-  // that contains the home directory, such as /Users or /home.
-  const home = await realpath(homedir()).catch(() => homedir());
-  if (root === path.parse(root).root || root === home || isInside(root, home)) {
-    throw new Error(
-      "FREEAGENT_ATTACHMENTS_DIR must be a dedicated receipts directory, not the filesystem root, your home directory or a folder containing it"
-    );
-  }
+  const { confineTo, root } = await resolveAttachmentsRoot(
+    "attachment_path requires FREEAGENT_ATTACHMENTS_DIR to be set to the directory " +
+      "receipts live in. Attachments are not read from arbitrary paths."
+  );
 
   // Lexical checks BEFORE touching the input path on disk. If realpath ran first, its
   // "not found" would reveal whether any file on the machine exists ("outside" vs "not
@@ -199,6 +180,106 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     file_name: path.basename(resolved),
     content_type: contentType,
   };
+}
+
+/**
+ * Resolve and vet FREEAGENT_ATTACHMENTS_DIR. Shared by reads (uploads) and writes
+ * (downloads) so both are confined to the same dedicated directory.
+ *
+ * @param unsetMessage Error thrown when the variable is unset, worded for the caller.
+ */
+export async function resolveAttachmentsRoot(
+  unsetMessage: string
+): Promise<{ confineTo: string; root: string }> {
+  const confineTo = process.env.FREEAGENT_ATTACHMENTS_DIR;
+  if (!confineTo || confineTo.trim() === "") {
+    throw new Error(unsetMessage);
+  }
+
+  let root: string;
+  try {
+    root = await realpath(confineTo);
+  } catch {
+    throw new Error("FREEAGENT_ATTACHMENTS_DIR is set to a path that does not exist");
+  }
+  // A root this broad makes confinement meaningless: every PDF or image on the
+  // machine (or in the user's home) would be attachable. That includes any folder
+  // that contains the home directory, such as /Users or /home.
+  const home = await realpath(homedir()).catch(() => homedir());
+  if (root === path.parse(root).root || root === home || isInside(root, home)) {
+    throw new Error(
+      "FREEAGENT_ATTACHMENTS_DIR must be a dedicated receipts directory, not the filesystem root, your home directory or a folder containing it"
+    );
+  }
+  return { confineTo, root };
+}
+
+/** Downloads may exceed the 5MB upload cap (files added in the web app), but not by much. */
+export const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Reduce an untrusted file name (it comes from FreeAgent, and so from whoever uploaded
+ * the file) to a plain basename that cannot escape the root or hide its type.
+ */
+export function safeDownloadName(fileName: string): string {
+  const base = path.basename(fileName.replace(/\\/g, "/"));
+  const cleaned = base
+    .replace(/[^A-Za-z0-9._ ()-]/g, "_")
+    .replace(/^[.\s]+/, "")
+    .slice(0, 150);
+  if (!cleaned || !path.extname(cleaned)) {
+    throw new Error(`Attachment file name is not usable: ${JSON.stringify(fileName)}`);
+  }
+  contentTypeFor(cleaned);
+  return cleaned;
+}
+
+/**
+ * Write downloaded attachment bytes into FREEAGENT_ATTACHMENTS_DIR.
+ *
+ * The write is confined the same way reads are: the name is reduced to a basename,
+ * must carry an allowlisted extension, and is created with O_EXCL | O_NOFOLLOW so an
+ * existing file (or a planted symlink) is never overwritten. On a name clash a
+ * " (n)" suffix is added instead.
+ *
+ * @returns The absolute path written.
+ */
+export async function saveAttachment(fileName: string, bytes: Uint8Array): Promise<string> {
+  const { root } = await resolveAttachmentsRoot(
+    "Downloading attachments requires FREEAGENT_ATTACHMENTS_DIR to be set to the " +
+      "directory receipts live in. Files are not written to arbitrary paths."
+  );
+  if (bytes.length === 0) throw new Error("Attachment download was empty");
+  if (bytes.length > MAX_DOWNLOAD_BYTES) {
+    throw new Error(`Attachment is larger than ${MAX_DOWNLOAD_BYTES / 1024 / 1024}MB and was not saved`);
+  }
+
+  const name = safeDownloadName(fileName);
+  const ext = path.extname(name);
+  const stem = name.slice(0, -ext.length);
+
+  for (let n = 0; n < 100; n++) {
+    const candidate = path.join(root, n === 0 ? name : `${stem} (${n})${ext}`);
+    if (!isInside(root, candidate)) throw outsideRoot();
+    let handle: FileHandle;
+    try {
+      handle = await open(
+        candidate,
+        constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0),
+        0o600
+      );
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
+      throw new Error(`Attachment could not be saved as ${path.basename(candidate)}`);
+    }
+    try {
+      await handle.writeFile(bytes);
+    } finally {
+      await handle.close();
+    }
+    return candidate;
+  }
+  throw new Error(`Too many files named like ${name} in the attachment directory`);
 }
 
 function outsideRoot(): Error {

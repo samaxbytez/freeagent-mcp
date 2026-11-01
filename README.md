@@ -10,7 +10,7 @@
 
 An [MCP](https://modelcontextprotocol.io) server that gives Claude, Codex, Cursor,
 VS Code, Gemini CLI or any other MCP client the
-[FreeAgent](https://www.freeagent.com/) accounting API: 76 tools for
+[FreeAgent](https://www.freeagent.com/) accounting API: 77 tools for
 invoices, expenses, bills, contacts, projects, timeslips, banking, estimates,
 credit notes and the accounting reports.
 
@@ -34,7 +34,7 @@ reads, writes or deletes, and receipts are only read from one folder you choose.
 
 ```
 Claude, Codex, Cursor, VS Code, … ──stdio──▶ freeagent-mcp-server (Node.js, on your machine)
-                                                   ├─ 76 tools; sensitive ones only with FREEAGENT_ENABLE_SENSITIVE_TOOLS
+                                                   ├─ 77 tools; sensitive ones only with FREEAGENT_ENABLE_SENSITIVE_TOOLS
                                                    ├─ OAuth2 tokens in ~/.freeagent-mcp/tokens.json, refreshed automatically
                                                    ├─ receipts read from FREEAGENT_ATTACHMENTS_DIR only
                                                    └──HTTPS, your bearer token──▶ api.freeagent.com/v2 (or the sandbox)
@@ -145,7 +145,7 @@ The whole map is [docs/README.md](docs/README.md).
 | --- | --- |
 | [docs/setup.md](docs/setup.md) | Step by step: client ID and secret, connecting your account, adding it to your AI app |
 | [docs/configuration.md](docs/configuration.md) | Every setting, signing in, the sandbox, config for each MCP client |
-| [docs/tools.md](docs/tools.md) | All 76 tools, pagination, annotations, example prompts |
+| [docs/tools.md](docs/tools.md) | All 77 tools, pagination, annotations, example prompts |
 | [docs/security.md](docs/security.md) | The threat model, sensitive tools, attachments, tokens |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common errors and fixes |
 | [docs/development.md](docs/development.md) | Building, testing, what's where, adding a tool |
