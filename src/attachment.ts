@@ -226,15 +226,21 @@ export const MAX_DOWNLOAD_BYTES = 25 * 1024 * 1024;
  */
 export function safeDownloadName(fileName: string): string {
   const base = path.basename(fileName.replace(/\\/g, "/"));
-  const cleaned = base
-    .replace(/[^A-Za-z0-9._ ()-]/g, "_")
-    .replace(/^[.\s]+/, "")
-    .slice(0, 150);
-  if (!cleaned || !path.extname(cleaned)) {
+  const { name, ext } = path.parse(
+    base.replace(/[^A-Za-z0-9._ ()-]/g, "_").replace(/^[.\s]+/, "")
+  );
+  if (!name || !ext) {
     throw new Error(`Attachment file name is not usable: ${JSON.stringify(fileName)}`);
   }
-  contentTypeFor(cleaned);
-  return cleaned;
+  contentTypeFor(name + ext);
+  // Truncate the stem, not the whole name, so a long name keeps its extension. A
+  // leading "-" would read as a flag in a shell; CON, NUL, COM1 and friends are
+  // devices on Windows, not files.
+  let stem = name.slice(0, 120);
+  if (stem.startsWith("-") || /^(con|prn|aux|nul|com\d|lpt\d)$/i.test(stem.split(".")[0])) {
+    stem = `_${stem}`;
+  }
+  return stem + ext;
 }
 
 /** Where a download will be written: the vetted root and the cleaned file name. */

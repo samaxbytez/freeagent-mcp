@@ -6,6 +6,7 @@ import { createMockServer, createMockClient } from "./test-helpers.js";
 import { registerExpenseTools } from "./expenses.js";
 import { registerBillTools } from "./bills.js";
 import { registerAttachmentTools } from "./attachments.js";
+import { safeDownloadName } from "../attachment.js";
 
 const PDF_BYTES = Buffer.from("%PDF-1.4 receipt", "utf8");
 
@@ -262,5 +263,25 @@ describe("freeagent_download_attachment", () => {
     expect(third.isError).toBe(true);
     expect(third.content[0].text).toMatch(/Restart the server/);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("safeDownloadName", () => {
+  it("keeps the extension when a long name is shortened", () => {
+    const name = safeDownloadName("a".repeat(500) + ".pdf");
+    expect(name).toBe("a".repeat(120) + ".pdf");
+  });
+
+  it("defuses leading dashes and Windows device names", () => {
+    expect(safeDownloadName("-rf.pdf")).toBe("_-rf.pdf");
+    expect(safeDownloadName("CON.pdf")).toBe("_CON.pdf");
+    expect(safeDownloadName("nul.tar.pdf")).toBe("_nul.tar.pdf");
+    expect(safeDownloadName("console.pdf")).toBe("console.pdf");
+  });
+
+  it("refuses names that are only an extension or have none", () => {
+    for (const bad of [".pdf", "..", "", "receipt", "x.sh", "x.pdf "]) {
+      expect(() => safeDownloadName(bad)).toThrow();
+    }
   });
 });
