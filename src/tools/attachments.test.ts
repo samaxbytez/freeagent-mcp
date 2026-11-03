@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, readFile, readdir, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createMockServer, createMockClient } from "./test-helpers.js";
 import { registerExpenseTools } from "./expenses.js";
 import { registerBillTools } from "./bills.js";
+import { registerAttachmentTools } from "./attachments.js";
+import { safeDownloadName } from "../attachment.js";
 
 const PDF_BYTES = Buffer.from("%PDF-1.4 receipt", "utf8");
 
@@ -147,5 +149,139 @@ describe("attachment_path on bill tools", () => {
     expect(body.bill.attachment_path).toBeUndefined();
     expect(body.bill.attachment.file_name).toBe("invoice.pdf");
     expect(body.bill.reference).toBe("INV-2");
+  });
+});
+
+describe("freeagent_download_attachment", () => {
+  const LINK = "https://s3.eu-west-1.amazonaws.com/fa/receipt.pdf?X-Amz-Signature=abc";
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(PDF_BYTES, { status: 200 }));
+  });
+  afterEach(() => fetchSpy.mockRestore());
+
+  function setupTool(link = LINK, fileName = "laptop.pdf", sessionLimit?: number) {
+    const { server, tools } = createMockServer();
+    const client = createMockClient();
+    (client.get as any).mockResolvedValue({
+      attachment: { content_src: link, file_name: fileName, content_type: "application/pdf" },
+    });
+    registerAttachmentTools(server, client, sessionLimit);
+    const call = () => tools.get("freeagent_download_attachment")!({ attachment_id: "82857621" });
+    return { call, client };
+  }
+
+  async function download(fileName: string, link = LINK) {
+    const { call, client } = setupTool(link, fileName);
+    return { res: await call(), client };
+  }
+
+  it("saves the file into the attachment dir and never returns the link", async () => {
+    const { res, client } = await download("laptop.pdf");
+    expect(client.get).toHaveBeenCalledWith("/attachments/82857621");
+    expect(res.isError).toBeUndefined();
+    expect(res.content[0].text).not.toContain("X-Amz-Signature");
+    const out = JSON.parse(res.content[0].text);
+    expect(await readFile(out.saved_to)).toEqual(PDF_BYTES);
+    expect(path.dirname(out.saved_to)).toBe(await realpath(dir));
+  });
+
+  it("fetches the pre-signed link without any Authorization header", async () => {
+    await download("laptop.pdf");
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit | undefined];
+    expect(JSON.stringify(init?.headers ?? {})).not.toMatch(/authorization/i);
+  });
+
+  it("never overwrites an existing file", async () => {
+    const { res } = await download("invoice.pdf");
+    const out = JSON.parse(res.content[0].text);
+    expect(path.basename(out.saved_to)).toBe("invoice (1).pdf");
+    expect(await readFile(pdf)).toEqual(PDF_BYTES);
+  });
+
+  it("keeps a traversal file name inside the dir", async () => {
+    const { res } = await download("../../evil.pdf");
+    const out = JSON.parse(res.content[0].text);
+    expect(path.dirname(out.saved_to)).toBe(await realpath(dir));
+    expect(path.basename(out.saved_to)).toBe("evil.pdf");
+  });
+
+  it("refuses a file type that could not be attached", async () => {
+    const { res } = await download("payload.sh");
+    expect(res.isError).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("refuses a non-https link", async () => {
+    const { res } = await download("laptop.pdf", "http://example.com/x.pdf");
+    expect(res.isError).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses to write when FREEAGENT_ATTACHMENTS_DIR is unset", async () => {
+    delete process.env.FREEAGENT_ATTACHMENTS_DIR;
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/requires FREEAGENT_ATTACHMENTS_DIR/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses redirects and sets a timeout on the download", async () => {
+    await download("laptop.pdf");
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.redirect).toBe("error");
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("reports a failed or timed-out download without saving anything", async () => {
+    fetchSpy.mockRejectedValueOnce(new TypeError("fetch failed"));
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/download failed/);
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("refuses a download whose declared size is over the cap", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(PDF_BYTES, { status: 200, headers: { "content-length": String(26 * 1024 * 1024) } })
+    );
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/larger than 25MB/);
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("stops downloading once the session total is used up", async () => {
+    const { call } = setupTool(LINK, "laptop.pdf", PDF_BYTES.length * 2);
+    expect((await call()).isError).toBeUndefined();
+    expect((await call()).isError).toBeUndefined();
+    const third = await call();
+    expect(third.isError).toBe(true);
+    expect(third.content[0].text).toMatch(/Restart the server/);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("safeDownloadName", () => {
+  it("keeps the extension when a long name is shortened", () => {
+    const name = safeDownloadName("a".repeat(500) + ".pdf");
+    expect(name).toBe("a".repeat(120) + ".pdf");
+  });
+
+  it("defuses leading dashes and Windows device names", () => {
+    expect(safeDownloadName("-rf.pdf")).toBe("_-rf.pdf");
+    expect(safeDownloadName("CON.pdf")).toBe("_CON.pdf");
+    expect(safeDownloadName("nul.tar.pdf")).toBe("_nul.tar.pdf");
+    expect(safeDownloadName("console.pdf")).toBe("console.pdf");
+  });
+
+  it("refuses names that are only an extension or have none", () => {
+    for (const bad of [".pdf", "..", "", "receipt", "x.sh", "x.pdf "]) {
+      expect(() => safeDownloadName(bad)).toThrow();
+    }
   });
 });
