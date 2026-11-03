@@ -16,7 +16,7 @@ src/
 ├── auth.ts       # OAuth2 flow, token storage (~/.freeagent-mcp/tokens.json; tokens.sandbox.json) and refresh
 ├── client.ts     # FreeAgentClient — HTTP wrapper around fetch (get/getList/postJson/putJson/deleteReq)
 ├── policy.ts     # withToolPolicy: MCP annotations for every tool, sensitive tools gated behind FREEAGENT_ENABLE_SENSITIVE_TOOLS
-├── attachment.ts # readAttachment: attachment_path, the only local file read, confined to FREEAGENT_ATTACHMENTS_DIR
+├── attachment.ts # readAttachment / saveAttachment: the only local file access, confined to FREEAGENT_ATTACHMENTS_DIR
 ├── utils.ts      # Shared helpers: jsonResponse, errorResponse, logToolCall, buildParams, safeId, constants
 └── tools/        # One file per FreeAgent resource, each exporting registerXxxTools(server, client)
 ```
@@ -60,10 +60,14 @@ and test following this pattern.
 - **Browser launch** uses `execFile` (never `exec`/shell) and `explorer.exe` on
   Windows — never reintroduce shell interpolation of a URL.
 - **Token file** is written `0o600` in a `0o700` directory. Never log tokens.
-- **Attachments** (`src/attachment.ts`) are the only local file read. Reads are
+- **Attachments** (`src/attachment.ts`) are the only local file access. Reads are
   confined to `FREEAGENT_ATTACHMENTS_DIR`, checked lexically before touching the
   filesystem and again after `realpath`, with an extension allowlist on both;
   the file is opened once (no symlink follow) and must be regular with one link.
+  Downloads (`freeagent_download_attachment`) write only there too: the FreeAgent
+  file name is reduced to a safe basename with an allowlisted extension, created
+  `O_EXCL | O_NOFOLLOW` mode `0o600` (never overwrites), fetched over https with no
+  bearer token, no redirects, a timeout, a 25MB per-file and 250MB per-session cap.
 - **Tool output** never carries FreeAgent's pre-signed `content_src*` links:
   `jsonResponse` strips them.
 

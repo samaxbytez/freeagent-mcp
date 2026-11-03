@@ -28,17 +28,27 @@ function withoutFields(schema: unknown, fields: string[]): unknown {
   );
 }
 
-export function annotationsFor(name: string): ToolAnnotations {
-  const action = name.replace(/^freeagent_/, "").split("_")[0];
+const OPEN_WORLD: ToolAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
+const DESTRUCTIVE: ToolAnnotations = { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
 
+// Tools whose name verb doesn't tell the whole story. Everything else is classified
+// by the verb in annotationsFor.
+const ANNOTATION_OVERRIDES: Readonly<Record<string, ToolAnnotations>> = {
+  freeagent_send_invoice_email: OPEN_WORLD, // emails someone outside the account
+  freeagent_download_attachment: OPEN_WORLD, // fetches from storage outside the API origin
+  freeagent_mark_invoice_as_cancelled: DESTRUCTIVE,
+};
+
+export function annotationsFor(name: string): ToolAnnotations {
+  const override = ANNOTATION_OVERRIDES[name];
+  if (override) return { ...override };
+
+  const action = name.replace(/^freeagent_/, "").split("_")[0];
   if (action === "list" || action === "get") {
     return { readOnlyHint: true, openWorldHint: false };
   }
-  if (name === "freeagent_send_invoice_email") {
-    return { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
-  }
-  if (action === "delete" || action === "update" || name === "freeagent_mark_invoice_as_cancelled") {
-    return { readOnlyHint: false, destructiveHint: true, openWorldHint: false };
+  if (action === "delete" || action === "update") {
+    return { ...DESTRUCTIVE };
   }
   return { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 }

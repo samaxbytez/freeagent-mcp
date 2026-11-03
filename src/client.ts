@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = "https://api.freeagent.com/v2";
-const REQUEST_TIMEOUT_MS = 30_000;
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 export class FreeAgentApiError extends Error {
   public readonly status: number;

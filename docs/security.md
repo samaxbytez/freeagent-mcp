@@ -45,7 +45,7 @@ PDF, PNG, JPEG and GIF only, 5MB maximum, which is what the FreeAgent API itself
 export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
 ```
 
-Without it, `attachment_path` is refused. This is the server's only local file read, and
+Without it, `attachment_path` and `freeagent_download_attachment` are refused. This is the server's only local file access, and
 it is driven by a model whose inputs an attacker may influence, so it is scoped rather
 than open.
 
@@ -69,6 +69,19 @@ the checks and the read; and a folder that contains your home directory (such as
 Pre-signed download links (`content_src` and its variants) are removed from
 everything the tools return, so a receipt's link can't be passed on by an
 injected instruction. The attachment's file name and type are kept.
+
+### Downloading attachments
+
+`freeagent_download_attachment` saves a receipt into the same folder, and nowhere
+else. The server fetches FreeAgent's pre-signed link itself, so the link never
+reaches the model, and it never sends your bearer token with it. The download must
+be https, may not redirect, and times out after 30 seconds.
+
+FreeAgent's file name is treated as untrusted: it is reduced to a plain name, must
+end in `.pdf`, `.png`, `.jpg`, `.jpeg` or `.gif`, and is created fresh with
+permissions `0600`. An existing file or a planted symlink is never overwritten; a
+clashing name gets a ` (1)` suffix instead. Each file is capped at 25MB and each
+server session at 250MB in total, so an injected loop can't fill your disk.
 
 ## Supply chain
 

@@ -162,15 +162,20 @@ describe("freeagent_download_attachment", () => {
   });
   afterEach(() => fetchSpy.mockRestore());
 
-  async function download(fileName: string, link = LINK) {
+  function setupTool(link = LINK, fileName = "laptop.pdf", sessionLimit?: number) {
     const { server, tools } = createMockServer();
     const client = createMockClient();
     (client.get as any).mockResolvedValue({
       attachment: { content_src: link, file_name: fileName, content_type: "application/pdf" },
     });
-    registerAttachmentTools(server, client);
-    const res = await tools.get("freeagent_download_attachment")!({ attachment_id: "82857621" });
-    return { res, client };
+    registerAttachmentTools(server, client, sessionLimit);
+    const call = () => tools.get("freeagent_download_attachment")!({ attachment_id: "82857621" });
+    return { call, client };
+  }
+
+  async function download(fileName: string, link = LINK) {
+    const { call, client } = setupTool(link, fileName);
+    return { res: await call(), client };
   }
 
   it("saves the file into the attachment dir and never returns the link", async () => {
@@ -206,6 +211,7 @@ describe("freeagent_download_attachment", () => {
   it("refuses a file type that could not be attached", async () => {
     const { res } = await download("payload.sh");
     expect(res.isError).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
     expect(await readdir(dir)).toEqual(["invoice.pdf"]);
   });
 
@@ -220,5 +226,41 @@ describe("freeagent_download_attachment", () => {
     const { res } = await download("laptop.pdf");
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/requires FREEAGENT_ATTACHMENTS_DIR/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("refuses redirects and sets a timeout on the download", async () => {
+    await download("laptop.pdf");
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(init.redirect).toBe("error");
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("reports a failed or timed-out download without saving anything", async () => {
+    fetchSpy.mockRejectedValueOnce(new TypeError("fetch failed"));
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/download failed/);
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("refuses a download whose declared size is over the cap", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      new Response(PDF_BYTES, { status: 200, headers: { "content-length": String(26 * 1024 * 1024) } })
+    );
+    const { res } = await download("laptop.pdf");
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/larger than 25MB/);
+    expect(await readdir(dir)).toEqual(["invoice.pdf"]);
+  });
+
+  it("stops downloading once the session total is used up", async () => {
+    const { call } = setupTool(LINK, "laptop.pdf", PDF_BYTES.length * 2);
+    expect((await call()).isError).toBeUndefined();
+    expect((await call()).isError).toBeUndefined();
+    const third = await call();
+    expect(third.isError).toBe(true);
+    expect(third.content[0].text).toMatch(/Restart the server/);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

@@ -18,7 +18,7 @@ Text that comes back from FreeAgent, such as a bank transaction's reference, can
 be written by someone outside your business, so the server assumes it may carry
 instructions aimed at the model. Tools that could hand over account access or
 send data out of the account are **off by default**, every tool says whether it
-reads, writes or deletes, and receipts are only read from one folder you choose.
+reads, writes or deletes, and receipts are only read from, and saved to, one folder you choose.
 
 ## Contents
 
@@ -36,7 +36,7 @@ reads, writes or deletes, and receipts are only read from one folder you choose.
 Claude, Codex, Cursor, VS Code, … ──stdio──▶ freeagent-mcp-server (Node.js, on your machine)
                                                    ├─ 77 tools; sensitive ones only with FREEAGENT_ENABLE_SENSITIVE_TOOLS
                                                    ├─ OAuth2 tokens in ~/.freeagent-mcp/tokens.json, refreshed automatically
-                                                   ├─ receipts read from FREEAGENT_ATTACHMENTS_DIR only
+                                                   ├─ receipts read from / saved to FREEAGENT_ATTACHMENTS_DIR only
                                                    └──HTTPS, your bearer token──▶ api.freeagent.com/v2 (or the sandbox)
 ```
 
@@ -116,7 +116,7 @@ endpoint and example prompts: [docs/tools.md](docs/tools.md).
 | `FREEAGENT_CLIENT_ID`, `FREEAGENT_CLIENT_SECRET` | Yes | Your app's OAuth2 credentials |
 | `FREEAGENT_SANDBOX` | No | `true` to use the FreeAgent sandbox |
 | `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | `true` to turn on user management, invoice emailing, adding bank accounts and changing a contact's email |
-| `FREEAGENT_ATTACHMENTS_DIR` | To attach receipts | The one folder `attachment_path` may read from |
+| `FREEAGENT_ATTACHMENTS_DIR` | To attach receipts | The one folder `attachment_path` reads from and `freeagent_download_attachment` saves to |
 | `FREEAGENT_ACCESS_TOKEN`, `FREEAGENT_BASE_URL` | No | Legacy direct token; API base override |
 
 Why the sensitive tools are off and how attachments are confined:

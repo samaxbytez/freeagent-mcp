@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { open, realpath, type FileHandle } from "node:fs/promises";
+import { open, realpath, unlink, type FileHandle } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { z } from "zod";
@@ -28,6 +28,9 @@ import { z } from "zod";
  * fooled by `receipt.pdf -> ~/.ssh/id_rsa`. Only regular files are read, so devices
  * and FIFOs are out.
  */
+
+/** Byte count as whole megabytes, for size-limit messages. */
+export const mb = (bytes: number) => `${Math.round(bytes / 1024 / 1024)}MB`;
 
 /** FreeAgent rejects attachments above 5MB. */
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -150,9 +153,9 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
       throw new Error(`Attachment is empty: ${inputPath}`);
     }
     if (info.size > MAX_ATTACHMENT_BYTES) {
-      const mb = (info.size / 1024 / 1024).toFixed(1);
+      const size = (info.size / 1024 / 1024).toFixed(1);
       throw new Error(
-        `Attachment is ${mb}MB. FreeAgent rejects attachments over ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB.`
+        `Attachment is ${size}MB. FreeAgent rejects attachments over ${mb(MAX_ATTACHMENT_BYTES)}.`
       );
     }
 
@@ -167,7 +170,7 @@ export async function readAttachment(inputPath: string): Promise<Attachment> {
     }
     if (filled > MAX_ATTACHMENT_BYTES) {
       throw new Error(
-        `Attachment grew past ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB while being read and was not sent.`
+        `Attachment grew past ${mb(MAX_ATTACHMENT_BYTES)} while being read and was not sent.`
       );
     }
     bytes = buffer.subarray(0, filled);
@@ -234,33 +237,45 @@ export function safeDownloadName(fileName: string): string {
   return cleaned;
 }
 
+/** Where a download will be written: the vetted root and the cleaned file name. */
+export interface DownloadTarget {
+  root: string;
+  name: string;
+}
+
+/**
+ * Vet the root and the untrusted file name BEFORE anything is downloaded, so a call
+ * that could never be saved doesn't fetch up to 25MB first.
+ */
+export async function downloadTarget(fileName: string): Promise<DownloadTarget> {
+  const { root } = await resolveAttachmentsRoot(
+    "Downloading attachments requires FREEAGENT_ATTACHMENTS_DIR to be set to the " +
+      "directory receipts live in. Files are not written to arbitrary paths."
+  );
+  return { root, name: safeDownloadName(fileName) };
+}
+
 /**
  * Write downloaded attachment bytes into FREEAGENT_ATTACHMENTS_DIR.
  *
  * The write is confined the same way reads are: the name is reduced to a basename,
  * must carry an allowlisted extension, and is created with O_EXCL | O_NOFOLLOW so an
  * existing file (or a planted symlink) is never overwritten. On a name clash a
- * " (n)" suffix is added instead.
+ * " (n)" suffix is added instead. Size is capped by the caller while downloading.
  *
  * @returns The absolute path written.
  */
-export async function saveAttachment(fileName: string, bytes: Uint8Array): Promise<string> {
-  const { root } = await resolveAttachmentsRoot(
-    "Downloading attachments requires FREEAGENT_ATTACHMENTS_DIR to be set to the " +
-      "directory receipts live in. Files are not written to arbitrary paths."
-  );
+export async function saveAttachment(
+  { root, name }: DownloadTarget,
+  bytes: Uint8Array
+): Promise<string> {
   if (bytes.length === 0) throw new Error("Attachment download was empty");
-  if (bytes.length > MAX_DOWNLOAD_BYTES) {
-    throw new Error(`Attachment is larger than ${MAX_DOWNLOAD_BYTES / 1024 / 1024}MB and was not saved`);
-  }
-
-  const name = safeDownloadName(fileName);
-  const ext = path.extname(name);
-  const stem = name.slice(0, -ext.length);
+  const { name: stem, ext } = path.parse(name);
 
   for (let n = 0; n < 100; n++) {
     const candidate = path.join(root, n === 0 ? name : `${stem} (${n})${ext}`);
     if (!isInside(root, candidate)) throw outsideRoot();
+    const failed = new Error(`Attachment could not be saved as ${path.basename(candidate)}`);
     let handle: FileHandle;
     try {
       handle = await open(
@@ -270,10 +285,14 @@ export async function saveAttachment(fileName: string, bytes: Uint8Array): Promi
       );
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
-      throw new Error(`Attachment could not be saved as ${path.basename(candidate)}`);
+      throw failed;
     }
     try {
       await handle.writeFile(bytes);
+    } catch {
+      // Don't leave a truncated file behind under the real name.
+      await unlink(candidate).catch(() => {});
+      throw failed;
     } finally {
       await handle.close();
     }

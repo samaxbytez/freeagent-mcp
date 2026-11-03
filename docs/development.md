@@ -33,7 +33,7 @@ src/
 ├── auth.ts             # OAuth2 flow, the callback server, token storage and refresh
 ├── client.ts           # FreeAgentClient: fetch wrapper, path and origin checks, pagination
 ├── policy.ts           # MCP annotations for every tool; sensitive tools behind an opt-in
-├── attachment.ts       # attachment_path: the only local file read, confined to one directory
+├── attachment.ts       # attachment reads and downloads: the only local file access, confined to one directory
 ├── utils.ts            # jsonResponse, errorResponse, logToolCall, buildParams, safeId, pagination
 ├── *.test.ts           # Tests beside each module
 └── tools/
