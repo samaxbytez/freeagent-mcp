@@ -5,6 +5,41 @@ All notable changes to this project are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-11-08
+
+### Added
+
+- **Bank transaction explanations:** eight new tools. You can list, get, create,
+  update and delete explanations, which categorise a transaction or match it to
+  a bill, invoice, user or transfer. To approve a guess FreeAgent marked for
+  review, set `marked_for_review: false`. `sales_tax_status` accepts
+  `OUT_OF_SCOPE`.
+- **Explanation attachments:** list an explanation's files, attach up to 10 at a
+  time from `FREEAGENT_ATTACHMENTS_DIR`, and remove one. These calls use FreeAgent
+  API version 2026-09-01, so they return the `attachments` list that becomes the
+  default on 1 December 2026.
+- **`freeagent_download_attachment`:** saves a receipt into
+  `FREEAGENT_ATTACHMENTS_DIR` and returns the saved path, never the download link.
+  It never overwrites a file, refuses redirects, has a timeout, and is capped at
+  25MB per file and 250MB per session.
+- **Read-only mode:** with `FREEAGENT_READ_ONLY=true`, only the read-only tools
+  are registered (`list_*` and `get_*`), and the model is told the session is
+  read-only. This takes precedence over `FREEAGENT_ENABLE_SENSITIVE_TOOLS`.
+
+### Changed
+
+- `remove_*` tools are now marked destructive.
+- Dependabot waits seven days before proposing a new version.
+- Dev tooling dependencies were updated.
+
+### Security
+
+- `FREEAGENT_READ_ONLY` fails closed: any value other than true/false (or
+  1/0, yes/no) stops the server with an error instead of leaving write tools on.
+- Downloaded file names are reduced to a safe base name with an allowed
+  extension. Names that start with a dash or match a Windows device name (such
+  as `CON.pdf`) get a `_` prefix.
+
 ## [3.0.0] - 2026-10-31
 
 ### Breaking
@@ -135,6 +170,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default to the production FreeAgent API and add an auth paste fallback.
 - Built-in OAuth2 flow with automatic token refresh.
 
+[3.1.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/samaxbytez/freeagent-mcp/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/samaxbytez/freeagent-mcp/compare/v1.3.0...v2.0.0
