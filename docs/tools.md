@@ -1,6 +1,6 @@
 # Tools
 
-77 tools, one file per FreeAgent resource in `src/tools/`. Every tool name starts
+85 tools, one file per FreeAgent resource in `src/tools/`. Every tool name starts
 with `freeagent_`. The counts in the headings come from the `server.tool(` and
 `server.registerTool(` calls in each file; run `/sync-tool-count` after adding,
 removing or renaming one.
@@ -13,8 +13,8 @@ List tools accept `page` and `per_page` (default 25, max 100). Responses include
 
 Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`,
 `openWorldHint`) so clients can ask for confirmation before writes and deletes.
-`list_*` and `get_*` tools are read-only; `update_*`, `delete_*` and cancelling an
-invoice are marked destructive; sending an invoice email is marked open-world.
+`list_*` and `get_*` tools are read-only; `update_*`, `delete_*`, `remove_*` and
+cancelling an invoice are marked destructive; sending an invoice email is marked open-world.
 Five tools, and the `email` field of `freeagent_update_contact`, are off by
 default: see [security.md](security.md#sensitive-tools).
 
@@ -147,6 +147,22 @@ default: see [security.md](security.md#sensitive-tools).
 | `freeagent_list_bank_transactions` | List transactions for a bank account | `GET /bank_transactions` |
 | `freeagent_get_bank_transaction` | Get a specific bank transaction | `GET /bank_transactions/:id` |
 
+## Bank Transaction Explanations (8 tools)
+
+All of these send `X-Api-Version: 2026-09-01`, so explanations carry an `attachments`
+array (FreeAgent's default from 1 December 2026) rather than the old inline `attachment`.
+
+| Tool | Description | API Endpoint |
+|------|-------------|-------------|
+| `freeagent_list_bank_transaction_explanations` | List explanations for a bank account | `GET /bank_transaction_explanations` |
+| `freeagent_get_bank_transaction_explanation` | Get a specific explanation | `GET /bank_transaction_explanations/:id` |
+| `freeagent_create_bank_transaction_explanation` | Explain a transaction: categorise it, or match it to a bill, invoice, user or transfer | `POST /bank_transaction_explanations` |
+| `freeagent_update_bank_transaction_explanation` | Update an explanation, e.g. approve one marked for review | `PUT /bank_transaction_explanations/:id` |
+| `freeagent_delete_bank_transaction_explanation` | Delete an explanation | `DELETE /bank_transaction_explanations/:id` |
+| `freeagent_list_bank_transaction_explanation_attachments` | List an explanation's files (no pre-signed links) | `GET /bank_transaction_explanations/:id/attachments` |
+| `freeagent_add_bank_transaction_explanation_attachments` | Attach up to 10 files from `FREEAGENT_ATTACHMENTS_DIR` | `POST /bank_transaction_explanations/:id/attachments` |
+| `freeagent_remove_bank_transaction_explanation_attachment` | Remove one file from an explanation | `PUT /bank_transaction_explanations/:id/attachments` |
+
 ## Categories (2 tools)
 
 | Tool | Description | API Endpoint |
@@ -178,6 +194,7 @@ default: see [security.md](security.md#sensitive-tools).
 - "How much time did I log this week?"
 - "Start a timer on timeslip 67890"
 - "Show my profit and loss for the current year"
+- "Match last week's unexplained transactions on my current account to open bills and attach the PDFs from my receipts folder"
 - "List all overdue invoices"
 - "Create an expense for lunch at $25 under the entertainment category"
 - "What's my current balance sheet?"

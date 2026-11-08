@@ -47,7 +47,7 @@ export function annotationsFor(name: string): ToolAnnotations {
   if (action === "list" || action === "get") {
     return { readOnlyHint: true, openWorldHint: false };
   }
-  if (action === "delete" || action === "update") {
+  if (action === "delete" || action === "remove" || action === "update") {
     return { ...DESTRUCTIVE };
   }
   return { readOnlyHint: false, destructiveHint: false, openWorldHint: false };

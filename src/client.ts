@@ -97,9 +97,12 @@ interface SendOptions {
   params?: Record<string, string>;
 }
 
+const API_VERSION = /^\d{4}-\d{2}-\d{2}$/;
+
 export class FreeAgentClient {
   private getAccessToken: () => Promise<string>;
   private base: URL;
+  private apiVersion?: string;
 
   constructor(
     tokenOrProvider: string | (() => Promise<string>),
@@ -111,6 +114,17 @@ export class FreeAgentClient {
         : async () => tokenOrProvider;
     const base = baseUrl || DEFAULT_BASE_URL;
     this.base = new URL(base.endsWith("/") ? base : base + "/");
+  }
+
+  /**
+   * A client that opts every request in to a dated FreeAgent API version (sent as
+   * X-Api-Version), sharing this one's token and base URL.
+   */
+  withApiVersion(version: string): FreeAgentClient {
+    if (!API_VERSION.test(version)) throw new Error(`Invalid API version: ${version}`);
+    const versioned = new FreeAgentClient(this.getAccessToken, this.base.toString());
+    versioned.apiVersion = version;
+    return versioned;
   }
 
   async get<T = unknown>(
@@ -143,11 +157,15 @@ export class FreeAgentClient {
     return (await this.send<T>("DELETE", path, { params })).body;
   }
 
-  private async send<T = unknown>(
-    method: string,
-    path: string,
-    { body, params }: SendOptions = {}
-  ): Promise<{ body: T; headers: Headers | undefined }> {
+  /**
+   * The absolute API URL of a resource, for request bodies that refer to one by URL
+   * (e.g. an attachment to remove). Runs the same path checks as a request.
+   */
+  resourceUrl(path: string): string {
+    return this.resolve(path).toString();
+  }
+
+  private resolve(path: string): URL {
     const fullPath = path.startsWith("/") ? path.slice(1) : path;
 
     if (/\.\.[\\/]/.test(fullPath) || /^[a-z]+:\/\//i.test(fullPath)) {
@@ -165,6 +183,15 @@ export class FreeAgentClient {
     if (!url.pathname.startsWith(this.base.pathname)) {
       throw new Error(`Resolved URL escapes the API base path: ${url.pathname}`);
     }
+    return url;
+  }
+
+  private async send<T = unknown>(
+    method: string,
+    path: string,
+    { body, params }: SendOptions = {}
+  ): Promise<{ body: T; headers: Headers | undefined }> {
+    const url = this.resolve(path);
 
     if (params) {
       for (const [k, v] of Object.entries(params)) {
@@ -180,6 +207,7 @@ export class FreeAgentClient {
     };
 
     if (body) headers["Content-Type"] = "application/json";
+    if (this.apiVersion) headers["X-Api-Version"] = this.apiVersion;
 
     const response = await fetch(url.toString(), {
       method,

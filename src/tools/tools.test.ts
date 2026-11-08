@@ -14,6 +14,7 @@ import { registerEstimateTools } from "./estimates.js";
 import { registerBillTools } from "./bills.js";
 import { registerCreditNoteTools } from "./credit-notes.js";
 import { registerCategoryTools } from "./categories.js";
+import { registerExplanationTools } from "./explanations.js";
 import type { ZodTypeAny } from "zod";
 
 silenceToolLogs();
@@ -245,6 +246,7 @@ describe("path parameters across all tools", () => {
     registerCreditNoteTools,
     registerExpenseTools,
     registerBankingTools,
+    registerExplanationTools,
     registerCategoryTools,
     registerAccountingTools,
   ];

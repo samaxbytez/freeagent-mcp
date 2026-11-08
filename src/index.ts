@@ -21,6 +21,7 @@ import { registerBankingTools } from "./tools/banking.js";
 import { registerCategoryTools } from "./tools/categories.js";
 import { registerAccountingTools } from "./tools/accounting.js";
 import { registerAttachmentTools } from "./tools/attachments.js";
+import { registerExplanationTools } from "./tools/explanations.js";
 
 // Inlined from package.json by scripts/bundle.mjs.
 declare const PACKAGE_VERSION: string;
@@ -109,6 +110,7 @@ if (process.argv[2] === "auth") {
   registerCreditNoteTools(tools, client);
   registerExpenseTools(tools, client);
   registerBankingTools(tools, client);
+  registerExplanationTools(tools, client);
   registerCategoryTools(tools, client);
   registerAccountingTools(tools, client);
   registerAttachmentTools(tools, client);

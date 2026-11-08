@@ -78,6 +78,7 @@ describe("annotationsFor", () => {
     });
     expect(annotationsFor("freeagent_update_contact").destructiveHint).toBe(true);
     expect(annotationsFor("freeagent_mark_invoice_as_cancelled").destructiveHint).toBe(true);
+    expect(annotationsFor("freeagent_remove_bank_transaction_explanation_attachment").destructiveHint).toBe(true);
     expect(annotationsFor("freeagent_send_invoice_email").openWorldHint).toBe(true);
     expect(annotationsFor("freeagent_download_attachment")).toMatchObject({
       readOnlyHint: false,
