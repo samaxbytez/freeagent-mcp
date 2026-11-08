@@ -37,6 +37,7 @@ const ANNOTATION_OVERRIDES: Readonly<Record<string, ToolAnnotations>> = {
   freeagent_send_invoice_email: OPEN_WORLD, // emails someone outside the account
   freeagent_download_attachment: OPEN_WORLD, // fetches from storage outside the API origin
   freeagent_mark_invoice_as_cancelled: DESTRUCTIVE,
+  freeagent_remove_bank_transaction_explanation_attachment: DESTRUCTIVE,
 };
 
 export function annotationsFor(name: string): ToolAnnotations {

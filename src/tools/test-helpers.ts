@@ -30,6 +30,7 @@ export function createMockClient() {
     postJson: vi.fn().mockResolvedValue({ data: "mock" }),
     putJson: vi.fn().mockResolvedValue({ data: "mock" }),
     deleteReq: vi.fn().mockResolvedValue({ data: "mock" }),
+    resourceUrl: vi.fn((path: string) => `https://api.freeagent.com/v2${path}`),
   } as unknown as FreeAgentClient;
 }
 

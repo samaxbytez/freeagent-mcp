@@ -185,6 +185,39 @@ describe("FreeAgentClient - token provider", () => {
   });
 });
 
+describe("FreeAgentClient - API version", () => {
+  it("sends X-Api-Version only when asked", async () => {
+    mockFetch.mockResolvedValue(mockOk({}));
+    const client = new FreeAgentClient("t");
+    await client.get("/x");
+    await client.postJson("/x", { a: 1 }, { apiVersion: "2026-09-01" });
+    expect(mockFetch.mock.calls[0][1].headers["X-Api-Version"]).toBeUndefined();
+    expect(mockFetch.mock.calls[1][1].headers["X-Api-Version"]).toBe("2026-09-01");
+  });
+
+  it("rejects a malformed version before sending", async () => {
+    const client = new FreeAgentClient("t");
+    await expect(client.get("/x", undefined, { apiVersion: "2026-09-01\r\nX: y" })).rejects.toThrow(
+      /Invalid API version/
+    );
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("FreeAgentClient - resourceUrl", () => {
+  it("builds an absolute URL under the API base", () => {
+    expect(new FreeAgentClient("t").resourceUrl("/attachments/3")).toBe(
+      "https://api.freeagent.com/v2/attachments/3"
+    );
+  });
+
+  it("applies the same path checks as a request", () => {
+    const client = new FreeAgentClient("t");
+    expect(() => client.resourceUrl("https://evil.example/x")).toThrow();
+    expect(() => client.resourceUrl("/%2e%2e/%2e%2e/x")).toThrow();
+  });
+});
+
 describe("FreeAgentClient - path safety", () => {
   it("rejects absolute URLs that would override the base", async () => {
     mockFetch.mockResolvedValueOnce(mockOk({ data: "ok" }));
