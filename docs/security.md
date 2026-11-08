@@ -20,6 +20,19 @@ and reminder emails. New contacts can still be given an email.
 
 Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `openWorldHint`) so clients can ask for confirmation before writes and deletes.
 
+## Read-only mode
+
+```bash
+export FREEAGENT_READ_ONLY=true
+```
+
+Only tools annotated `readOnlyHint` are registered, which today means the `list_*` and
+`get_*` tools; a test checks none of them writes. Nothing that creates, updates,
+deletes, sends an email or saves a download exists in the session, so an injected
+instruction has no write to reach for. It wins over `FREEAGENT_ENABLE_SENSITIVE_TOOLS`,
+whose tools all write. Use it for reporting and reconciliation sessions; to keep
+writes but drop a few tools, switch those off in your MCP client instead.
+
 ## Attachments
 
 `freeagent_create_expense`, `freeagent_update_expense`, `freeagent_create_bill` and

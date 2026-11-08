@@ -116,6 +116,7 @@ endpoint and example prompts: [docs/tools.md](docs/tools.md).
 | `FREEAGENT_CLIENT_ID`, `FREEAGENT_CLIENT_SECRET` | Yes | Your app's OAuth2 credentials |
 | `FREEAGENT_SANDBOX` | No | `true` to use the FreeAgent sandbox |
 | `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | `true` to turn on user management, invoice emailing, adding bank accounts and changing a contact's email |
+| `FREEAGENT_READ_ONLY` | No | `true` to register only tools that read: no creates, updates, deletes, emails or downloads |
 | `FREEAGENT_ATTACHMENTS_DIR` | To attach receipts | The one folder `attachment_path` reads from and `freeagent_download_attachment` saves to |
 | `FREEAGENT_ACCESS_TOKEN`, `FREEAGENT_BASE_URL` | No | Legacy direct token; API base override |
 

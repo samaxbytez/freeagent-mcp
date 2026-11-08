@@ -13,10 +13,10 @@ function registeredTools(server: McpServer): Record<string, { annotations?: unkn
     ._registeredTools;
 }
 
-function setup(allowSensitive: boolean) {
+function setup(allowSensitive: boolean, readOnly = false) {
   const server = new McpServer({ name: "test", version: "0.0.0" });
   const client = {} as FreeAgentClient;
-  const tools = withToolPolicy(server, { allowSensitive });
+  const tools = withToolPolicy(server, { allowSensitive, readOnly });
   registerUserTools(tools, client);
   registerInvoiceTools(tools, client);
   registerCompanyTools(tools, client);
@@ -51,6 +51,13 @@ describe("withToolPolicy", () => {
     for (const name of SENSITIVE_TOOLS) {
       expect(tools[name]).toBeDefined();
     }
+  });
+
+  it("keeps only read-only tools in read-only mode, even with sensitive tools on", () => {
+    const all = setup(true);
+    const tools = setup(true, true);
+    expect(Object.keys(tools)).toEqual(Object.keys(all).filter((n) => annotationsFor(n).readOnlyHint));
+    for (const t of Object.values(tools)) expect(t.annotations).toMatchObject({ readOnlyHint: true });
   });
 
   it("annotates tools registered via both tool() and registerTool()", () => {

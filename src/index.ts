@@ -33,6 +33,17 @@ const FREEAGENT_SANDBOX = process.env.FREEAGENT_SANDBOX === "true";
 const FREEAGENT_BASE_URL = process.env.FREEAGENT_BASE_URL;
 const FREEAGENT_ENABLE_SENSITIVE_TOOLS =
   process.env.FREEAGENT_ENABLE_SENSITIVE_TOOLS === "true";
+const FREEAGENT_READ_ONLY = parseReadOnly(process.env.FREEAGENT_READ_ONLY);
+
+// A safety switch must fail closed: FREEAGENT_READ_ONLY=1 or TRUE silently starting
+// with every write tool would be worse than refusing to start.
+function parseReadOnly(value: string | undefined): boolean {
+  const v = value?.trim().toLowerCase();
+  if (!v || v === "false" || v === "0" || v === "no") return false;
+  if (v === "true" || v === "1" || v === "yes") return true;
+  console.error(`FREEAGENT_READ_ONLY must be true or false, got ${JSON.stringify(value)}`);
+  process.exit(1);
+}
 
 function buildOAuthConfig(): OAuthConfig | null {
   if (FREEAGENT_CLIENT_ID && FREEAGENT_CLIENT_SECRET) {
@@ -93,9 +104,19 @@ if (process.argv[2] === "auth") {
     );
   }
 
-  const server = new McpServer({ name: "freeagent-mcp", version: PACKAGE_VERSION });
+  const server = new McpServer(
+    { name: "freeagent-mcp", version: PACKAGE_VERSION },
+    FREEAGENT_READ_ONLY
+      ? {
+          instructions:
+            "This FreeAgent server is in read-only mode (FREEAGENT_READ_ONLY): only list and get tools exist. " +
+            "Nothing can be created, changed, deleted or sent; say so rather than looking for a tool.",
+        }
+      : undefined
+  );
   const tools = withToolPolicy(server, {
     allowSensitive: FREEAGENT_ENABLE_SENSITIVE_TOOLS,
+    readOnly: FREEAGENT_READ_ONLY,
   });
 
   registerCompanyTools(tools, client);

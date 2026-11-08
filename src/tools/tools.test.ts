@@ -14,7 +14,9 @@ import { registerEstimateTools } from "./estimates.js";
 import { registerBillTools } from "./bills.js";
 import { registerCreditNoteTools } from "./credit-notes.js";
 import { registerCategoryTools } from "./categories.js";
+import { registerAttachmentTools } from "./attachments.js";
 import { registerExplanationTools } from "./explanations.js";
+import { annotationsFor } from "../policy.js";
 import type { ZodTypeAny } from "zod";
 
 silenceToolLogs();
@@ -230,49 +232,58 @@ describe("registerAccountingTools", () => {
   });
 });
 
+const ALL_GROUPS = [
+  registerCompanyTools,
+  registerUserTools,
+  registerContactTools,
+  registerProjectTools,
+  registerTaskTools,
+  registerTimeslipTools,
+  registerInvoiceTools,
+  registerEstimateTools,
+  registerBillTools,
+  registerCreditNoteTools,
+  registerExpenseTools,
+  registerBankingTools,
+  registerExplanationTools,
+  registerCategoryTools,
+  registerAccountingTools,
+  registerAttachmentTools,
+];
+
+/** Registers every tool group against one mock client, keeping each tool's schema and handler. */
+function registerAll() {
+  const schemas = new Map<string, Record<string, ZodTypeAny>>();
+  const handlers = new Map<string, ToolHandler>();
+  const server = {
+    registerTool: (name: string, config: { inputSchema?: Record<string, ZodTypeAny> }, cb: ToolHandler) => {
+      schemas.set(name, config.inputSchema ?? {});
+      handlers.set(name, cb);
+    },
+    tool: (...args: any[]) => {
+      const cb = typeof args[2] === "function" ? args[2] : args[3];
+      schemas.set(args[0], typeof args[2] === "function" ? {} : args[2]);
+      handlers.set(args[0], cb);
+    },
+  } as any;
+  const client = createMockClient();
+  for (const register of ALL_GROUPS) register(server, client);
+  return { schemas, handlers, client };
+}
+
+const markArgs = (schema: Record<string, ZodTypeAny>) =>
+  Object.fromEntries(Object.keys(schema).map((k) => [k, `MARK${k}MARK`]));
+
 describe("path parameters across all tools", () => {
   // Every argument that ends up interpolated into a request path must reject
   // traversal, including percent-encoded dot segments.
-  const groups = [
-    registerCompanyTools,
-    registerUserTools,
-    registerContactTools,
-    registerProjectTools,
-    registerTaskTools,
-    registerTimeslipTools,
-    registerInvoiceTools,
-    registerEstimateTools,
-    registerBillTools,
-    registerCreditNoteTools,
-    registerExpenseTools,
-    registerBankingTools,
-    registerExplanationTools,
-    registerCategoryTools,
-    registerAccountingTools,
-  ];
-
   it("rejects traversal in every path-interpolated argument", async () => {
-    const schemas = new Map<string, Record<string, ZodTypeAny>>();
-    const handlers = new Map<string, ToolHandler>();
-    const server = {
-      registerTool: (name: string, config: { inputSchema?: Record<string, ZodTypeAny> }, cb: ToolHandler) => {
-        schemas.set(name, config.inputSchema ?? {});
-        handlers.set(name, cb);
-      },
-      tool: (...args: any[]) => {
-        const cb = typeof args[2] === "function" ? args[2] : args[3];
-        schemas.set(args[0], typeof args[2] === "function" ? {} : args[2]);
-        handlers.set(args[0], cb);
-      },
-    } as any;
-    const client = createMockClient();
-    for (const register of groups) register(server, client);
+    const { schemas, handlers, client } = registerAll();
 
     let pathParams = 0;
     for (const [name, schema] of schemas) {
       vi.clearAllMocks();
-      const args = Object.fromEntries(Object.keys(schema).map((k) => [k, `MARK${k}MARK`]));
-      await handlers.get(name)!(args);
+      await handlers.get(name)!(markArgs(schema));
 
       const paths = Object.values(client)
         .flatMap((fn) => (fn as ReturnType<typeof vi.fn>).mock.calls)
@@ -289,5 +300,22 @@ describe("path parameters across all tools", () => {
       }
     }
     expect(pathParams).toBeGreaterThan(40);
+  });
+});
+
+describe("read-only tools", () => {
+  // FREEAGENT_READ_ONLY trusts annotationsFor, which goes by the name's verb. This
+  // checks the handlers too: a tool annotated read-only must never call a write.
+  it("never call a write method on the client", async () => {
+    const { schemas, handlers, client } = registerAll();
+    const readOnly = [...schemas.keys()].filter((name) => annotationsFor(name).readOnlyHint);
+    expect(readOnly.length).toBeGreaterThan(30);
+    for (const name of readOnly) {
+      vi.clearAllMocks();
+      await handlers.get(name)!(markArgs(schemas.get(name)!));
+      for (const write of [client.postJson, client.putJson, client.deleteReq]) {
+        expect(write, `${name} wrote`).not.toHaveBeenCalled();
+      }
+    }
   });
 });

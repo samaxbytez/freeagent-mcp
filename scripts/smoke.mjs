@@ -3,6 +3,7 @@
 // so they can't see failures that only exist in the bundle (CommonJS interop,
 // a dependency that breaks when bundled). Run after `npm run build`.
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -56,8 +57,23 @@ check(
   `with sensitive tools on, expected ${tools.length + SENSITIVE.length} tools, got ${opted.tools.length}`
 );
 
+const readOnly = await listTools({ FREEAGENT_READ_ONLY: "true", FREEAGENT_ENABLE_SENSITIVE_TOOLS: "true" });
+const names = (list) => list.map((t) => t.name).sort().join();
+check(
+  names(readOnly.tools) === names(tools.filter((t) => t.annotations?.readOnlyHint === true)),
+  "read-only mode does not expose exactly the read-only tools"
+);
+const spelled = await listTools({ FREEAGENT_READ_ONLY: " TRUE " });
+check(spelled.tools.length === readOnly.tools.length, "FREEAGENT_READ_ONLY=TRUE did not turn on read-only mode");
+const unknown = spawnSync(process.execPath, ["build/index.js"], {
+  env: { PATH: process.env.PATH ?? "", FREEAGENT_ACCESS_TOKEN: "smoke-test", FREEAGENT_READ_ONLY: "maybe" },
+  input: "",
+  timeout: 10_000,
+});
+check(unknown.status === 1, `an unrecognised FREEAGENT_READ_ONLY started the server (exit ${unknown.status})`);
+
 if (failures.length) {
   console.error(`Smoke test failed:\n- ${failures.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`Smoke test passed: ${info.name} ${info.version}, ${tools.length} tools (${opted.tools.length} with sensitive tools on)`);
+console.log(`Smoke test passed: ${info.name} ${info.version}, ${tools.length} tools (${opted.tools.length} with sensitive tools on, ${readOnly.tools.length} read-only)`);

@@ -41,6 +41,7 @@ npm start
 | `FREEAGENT_ACCESS_TOKEN` | No | Legacy: direct access token (skips stored token flow) |
 | `FREEAGENT_BASE_URL` | No | Override API base URL |
 | `FREEAGENT_ENABLE_SENSITIVE_TOOLS` | No | Set to `true` to register the [sensitive tools](security.md#sensitive-tools) |
+| `FREEAGENT_READ_ONLY` | No | Set to `true` to register only read-only tools (see [security.md](security.md#read-only-mode)). Overrides `FREEAGENT_ENABLE_SENSITIVE_TOOLS` |
 | `FREEAGENT_ATTACHMENTS_DIR` | For attachments | Directory `attachment_path` / `attachment_paths` read from and `freeagent_download_attachment` saves to. Required to use attachments at all (see [security.md](security.md#attachments)) |
 
 *Not required if using `FREEAGENT_ACCESS_TOKEN` directly.

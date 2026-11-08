@@ -15,7 +15,7 @@ src/
 ├── index.ts      # Entry point: builds the McpServer, wires the client, registers every tool group
 ├── auth.ts       # OAuth2 flow, token storage (~/.freeagent-mcp/tokens.json; tokens.sandbox.json) and refresh
 ├── client.ts     # FreeAgentClient — HTTP wrapper around fetch (get/getList/postJson/putJson/deleteReq)
-├── policy.ts     # withToolPolicy: MCP annotations for every tool, sensitive tools gated behind FREEAGENT_ENABLE_SENSITIVE_TOOLS
+├── policy.ts     # withToolPolicy: MCP annotations for every tool, sensitive tools gated behind FREEAGENT_ENABLE_SENSITIVE_TOOLS, FREEAGENT_READ_ONLY keeps only read-only tools
 ├── attachment.ts # readAttachment / saveAttachment: the only local file access, confined to FREEAGENT_ATTACHMENTS_DIR
 ├── utils.ts      # Shared helpers: jsonResponse, errorResponse, logToolCall, buildParams, safeId, constants
 └── tools/        # One file per FreeAgent resource, each exporting registerXxxTools(server, client)
