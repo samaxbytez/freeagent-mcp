@@ -24,13 +24,16 @@ export function createMockServer() {
 }
 
 export function createMockClient() {
-  return {
+  const client = {
     get: vi.fn().mockResolvedValue({ data: "mock" }),
     getList: vi.fn().mockResolvedValue({ data: { data: "mock" }, pagination: { page: 1, per_page: 25 } }),
     postJson: vi.fn().mockResolvedValue({ data: "mock" }),
     putJson: vi.fn().mockResolvedValue({ data: "mock" }),
     deleteReq: vi.fn().mockResolvedValue({ data: "mock" }),
-  } as unknown as FreeAgentClient;
+    resourceUrl: vi.fn((path: string) => `https://api.freeagent.com/v2${path}`),
+    withApiVersion: vi.fn(() => client),
+  };
+  return client as unknown as FreeAgentClient;
 }
 
 /** Silences logToolCall's stderr output for the calling test file. */

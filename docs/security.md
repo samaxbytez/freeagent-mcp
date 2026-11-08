@@ -52,13 +52,17 @@ same request** as the record itself, so an expense is never created without its 
 
 PDF, PNG, JPEG and GIF only, 5MB maximum, which is what the FreeAgent API itself accepts.
 
+`freeagent_add_bank_transaction_explanation_attachments` takes `attachment_paths`, up to
+10 files, read under exactly the same rules. Every file is read and checked before any
+is sent, so one refused path attaches nothing.
+
 ### `FREEAGENT_ATTACHMENTS_DIR` is required
 
 ```bash
 export FREEAGENT_ATTACHMENTS_DIR="$HOME/receipts"
 ```
 
-Without it, `attachment_path` and `freeagent_download_attachment` are refused. This is the server's only local file access, and
+Without it, `attachment_path`, `attachment_paths` and `freeagent_download_attachment` are refused. This is the server's only local file access, and
 it is driven by a model whose inputs an attacker may influence, so it is scoped rather
 than open.
 

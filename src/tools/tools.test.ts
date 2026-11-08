@@ -15,6 +15,7 @@ import { registerBillTools } from "./bills.js";
 import { registerCreditNoteTools } from "./credit-notes.js";
 import { registerCategoryTools } from "./categories.js";
 import { registerAttachmentTools } from "./attachments.js";
+import { registerExplanationTools } from "./explanations.js";
 import { annotationsFor } from "../policy.js";
 import type { ZodTypeAny } from "zod";
 
@@ -244,6 +245,7 @@ const ALL_GROUPS = [
   registerCreditNoteTools,
   registerExpenseTools,
   registerBankingTools,
+  registerExplanationTools,
   registerCategoryTools,
   registerAccountingTools,
   registerAttachmentTools,
