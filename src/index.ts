@@ -32,6 +32,7 @@ const FREEAGENT_SANDBOX = process.env.FREEAGENT_SANDBOX === "true";
 const FREEAGENT_BASE_URL = process.env.FREEAGENT_BASE_URL;
 const FREEAGENT_ENABLE_SENSITIVE_TOOLS =
   process.env.FREEAGENT_ENABLE_SENSITIVE_TOOLS === "true";
+const FREEAGENT_READ_ONLY = process.env.FREEAGENT_READ_ONLY === "true";
 
 function buildOAuthConfig(): OAuthConfig | null {
   if (FREEAGENT_CLIENT_ID && FREEAGENT_CLIENT_SECRET) {
@@ -95,6 +96,7 @@ if (process.argv[2] === "auth") {
   const server = new McpServer({ name: "freeagent-mcp", version: PACKAGE_VERSION });
   const tools = withToolPolicy(server, {
     allowSensitive: FREEAGENT_ENABLE_SENSITIVE_TOOLS,
+    readOnly: FREEAGENT_READ_ONLY,
   });
 
   registerCompanyTools(tools, client);

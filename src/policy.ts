@@ -53,20 +53,28 @@ export function annotationsFor(name: string): ToolAnnotations {
   return { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 }
 
+export interface ToolPolicyOptions {
+  allowSensitive: boolean;
+  /** Register only tools annotated read-only: nothing that writes to FreeAgent or to disk. */
+  readOnly?: boolean;
+}
+
 /**
  * Wraps the server so every tool registered through it gets MCP annotations,
- * and sensitive tools are dropped unless `allowSensitive` is set.
+ * sensitive tools are dropped unless `allowSensitive` is set, and every tool that
+ * is not read-only is dropped when `readOnly` is set.
  */
-export function withToolPolicy(
-  server: McpServer,
-  options: { allowSensitive: boolean }
-): McpServer {
+export function withToolPolicy(server: McpServer, options: ToolPolicyOptions): McpServer {
   const applyPolicy = (name: string, registered: RegisteredTool) => {
-    if (SENSITIVE_TOOLS.has(name) && !options.allowSensitive) {
+    const annotations = annotationsFor(name);
+    if (
+      (SENSITIVE_TOOLS.has(name) && !options.allowSensitive) ||
+      (options.readOnly && !annotations.readOnlyHint)
+    ) {
       registered.remove();
       return registered;
     }
-    registered.update({ annotations: annotationsFor(name) });
+    registered.update({ annotations });
     return registered;
   };
 

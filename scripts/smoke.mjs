@@ -56,8 +56,18 @@ check(
   `with sensitive tools on, expected ${tools.length + SENSITIVE.length} tools, got ${opted.tools.length}`
 );
 
+const readOnly = await listTools({ FREEAGENT_READ_ONLY: "true", FREEAGENT_ENABLE_SENSITIVE_TOOLS: "true" });
+check(
+  readOnly.tools.length > 0 && readOnly.tools.every((t) => t.annotations?.readOnlyHint === true),
+  "read-only mode exposes a tool that is not read-only"
+);
+check(
+  readOnly.tools.length === tools.filter((t) => t.annotations?.readOnlyHint === true).length,
+  `read-only mode registered ${readOnly.tools.length} tools, expected every read-only tool`
+);
+
 if (failures.length) {
   console.error(`Smoke test failed:\n- ${failures.join("\n- ")}`);
   process.exit(1);
 }
-console.log(`Smoke test passed: ${info.name} ${info.version}, ${tools.length} tools (${opted.tools.length} with sensitive tools on)`);
+console.log(`Smoke test passed: ${info.name} ${info.version}, ${tools.length} tools (${opted.tools.length} with sensitive tools on, ${readOnly.tools.length} read-only)`);
