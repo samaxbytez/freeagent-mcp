@@ -3,6 +3,7 @@
 // so they can't see failures that only exist in the bundle (CommonJS interop,
 // a dependency that breaks when bundled). Run after `npm run build`.
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -65,6 +66,14 @@ check(
   readOnly.tools.length === tools.filter((t) => t.annotations?.readOnlyHint === true).length,
   `read-only mode registered ${readOnly.tools.length} tools, expected every read-only tool`
 );
+const spelled = await listTools({ FREEAGENT_READ_ONLY: " TRUE " });
+check(spelled.tools.length === readOnly.tools.length, "FREEAGENT_READ_ONLY=TRUE did not turn on read-only mode");
+const unknown = spawnSync(process.execPath, ["build/index.js"], {
+  env: { PATH: process.env.PATH ?? "", FREEAGENT_ACCESS_TOKEN: "smoke-test", FREEAGENT_READ_ONLY: "maybe" },
+  input: "",
+  timeout: 10_000,
+});
+check(unknown.status === 1, `an unrecognised FREEAGENT_READ_ONLY started the server (exit ${unknown.status})`);
 
 if (failures.length) {
   console.error(`Smoke test failed:\n- ${failures.join("\n- ")}`);
