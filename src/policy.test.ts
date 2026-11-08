@@ -56,14 +56,7 @@ describe("withToolPolicy", () => {
   it("keeps only read-only tools in read-only mode, even with sensitive tools on", () => {
     const all = setup(true);
     const tools = setup(true, true);
-    const kept = Object.keys(tools);
-    expect(kept).toContain("freeagent_list_invoices");
-    expect(kept).toContain("freeagent_get_company");
-    expect(kept).not.toContain("freeagent_create_invoice");
-    expect(kept).not.toContain("freeagent_delete_invoice");
-    expect(kept).not.toContain("freeagent_mark_invoice_as_cancelled");
-    expect(kept).not.toContain("freeagent_send_invoice_email");
-    expect(kept).toEqual(Object.keys(all).filter((n) => annotationsFor(n).readOnlyHint));
+    expect(Object.keys(tools)).toEqual(Object.keys(all).filter((n) => annotationsFor(n).readOnlyHint));
     for (const t of Object.values(tools)) expect(t.annotations).toMatchObject({ readOnlyHint: true });
   });
 

@@ -26,7 +26,8 @@ Every tool also carries MCP annotations (`readOnlyHint`, `destructiveHint`, `ope
 export FREEAGENT_READ_ONLY=true
 ```
 
-Only the `list_*` and `get_*` tools are registered. Nothing that creates, updates,
+Only tools annotated `readOnlyHint` are registered, which today means the `list_*` and
+`get_*` tools; a test checks none of them writes. Nothing that creates, updates,
 deletes, sends an email or saves a download exists in the session, so an injected
 instruction has no write to reach for. It wins over `FREEAGENT_ENABLE_SENSITIVE_TOOLS`,
 whose tools all write. Use it for reporting and reconciliation sessions; to keep

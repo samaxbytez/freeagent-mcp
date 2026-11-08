@@ -58,13 +58,10 @@ check(
 );
 
 const readOnly = await listTools({ FREEAGENT_READ_ONLY: "true", FREEAGENT_ENABLE_SENSITIVE_TOOLS: "true" });
+const names = (list) => list.map((t) => t.name).sort().join();
 check(
-  readOnly.tools.length > 0 && readOnly.tools.every((t) => t.annotations?.readOnlyHint === true),
-  "read-only mode exposes a tool that is not read-only"
-);
-check(
-  readOnly.tools.length === tools.filter((t) => t.annotations?.readOnlyHint === true).length,
-  `read-only mode registered ${readOnly.tools.length} tools, expected every read-only tool`
+  names(readOnly.tools) === names(tools.filter((t) => t.annotations?.readOnlyHint === true)),
+  "read-only mode does not expose exactly the read-only tools"
 );
 const spelled = await listTools({ FREEAGENT_READ_ONLY: " TRUE " });
 check(spelled.tools.length === readOnly.tools.length, "FREEAGENT_READ_ONLY=TRUE did not turn on read-only mode");
