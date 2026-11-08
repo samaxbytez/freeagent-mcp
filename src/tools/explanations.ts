@@ -1,15 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { FreeAgentClient, type RequestOptions } from "../client.js";
+import { FreeAgentClient } from "../client.js";
 import { jsonResponse, errorResponse, logToolCall, buildParams, safeId, listResponse, paginationParams, definedOnly } from "../utils.js";
-import { readAttachment } from "../attachment.js";
+import { readAttachments, mb, MAX_ATTACHMENT_BYTES } from "../attachment.js";
 
 /**
  * From 1 December 2026 FreeAgent drops the inline `attachment` on explanations in
  * favour of an `attachments` array managed through its own endpoint. Opting in now
  * means every explanation call sees the same shape before and after that date.
  */
-const VERSION: RequestOptions = { apiVersion: "2026-09-01" };
+const API_VERSION = "2026-09-01";
 
 /** FreeAgent accepts at most 10 files per attachments request. */
 const MAX_FILES_PER_REQUEST = 10;
@@ -54,15 +54,17 @@ const explanationFields = {
   project: z.string().optional().describe("Project URL, to rebill the cost to a project"),
   rebill_type: z.enum(["cost", "markup", "price"]).optional().describe("How to rebill to the project"),
   rebill_factor: z.string().optional().describe("Markup or price factor; required for markup and price"),
-  receipt_reference: z.string().optional().describe("Receipt reference"),
-  cheque_number: z.string().optional().describe("Cheque number"),
+  receipt_reference: z.string().optional(),
+  cheque_number: z.string().optional(),
   marked_for_review: z
     .boolean()
     .optional()
     .describe("True while the explanation awaits approval; set false to approve a guessed one"),
 };
 
-export function registerExplanationTools(server: McpServer, client: FreeAgentClient): void {
+export function registerExplanationTools(server: McpServer, unversioned: FreeAgentClient): void {
+  const client = unversioned.withApiVersion(API_VERSION);
+
   server.tool(
     "freeagent_list_bank_transaction_explanations",
     "List bank transaction explanations for a bank account. To find transactions that still need explaining, use freeagent_list_bank_transactions with view \"unexplained\".",
@@ -79,7 +81,7 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async (args) => {
       logToolCall("freeagent_list_bank_transaction_explanations", args);
       try {
-        const data = await client.getList("/bank_transaction_explanations", buildParams(args), VERSION);
+        const data = await client.getList("/bank_transaction_explanations", buildParams(args));
         return listResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -96,7 +98,7 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async ({ explanation_id }) => {
       logToolCall("freeagent_get_bank_transaction_explanation", { explanation_id });
       try {
-        const data = await client.get(`/bank_transaction_explanations/${explanation_id}`, undefined, VERSION);
+        const data = await client.get(`/bank_transaction_explanations/${explanation_id}`);
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -112,10 +114,12 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     {
       bank_transaction: z
         .string()
+        .min(1)
         .optional()
         .describe("URL of the bank transaction to explain. Give this or bank_account"),
       bank_account: z
         .string()
+        .min(1)
         .optional()
         .describe("URL of a bank account, to create a new transaction with this explanation. Give this or bank_transaction"),
       ...explanationFields,
@@ -131,11 +135,9 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
         if (!args.bank_transaction === !args.bank_account) {
           throw new Error("Give exactly one of bank_transaction or bank_account");
         }
-        const data = await client.postJson(
-          "/bank_transaction_explanations",
-          { bank_transaction_explanation: definedOnly(args) },
-          VERSION
-        );
+        const data = await client.postJson("/bank_transaction_explanations", {
+          bank_transaction_explanation: definedOnly(args),
+        });
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -154,11 +156,9 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async ({ explanation_id, ...rest }) => {
       logToolCall("freeagent_update_bank_transaction_explanation", { explanation_id });
       try {
-        const data = await client.putJson(
-          `/bank_transaction_explanations/${explanation_id}`,
-          { bank_transaction_explanation: definedOnly(rest) },
-          VERSION
-        );
+        const data = await client.putJson(`/bank_transaction_explanations/${explanation_id}`, {
+          bank_transaction_explanation: definedOnly(rest),
+        });
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -175,7 +175,7 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async ({ explanation_id }) => {
       logToolCall("freeagent_delete_bank_transaction_explanation", { explanation_id });
       try {
-        const data = await client.deleteReq(`/bank_transaction_explanations/${explanation_id}`, undefined, VERSION);
+        const data = await client.deleteReq(`/bank_transaction_explanations/${explanation_id}`);
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -194,11 +194,7 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async ({ explanation_id }) => {
       logToolCall("freeagent_list_bank_transaction_explanation_attachments", { explanation_id });
       try {
-        const data = await client.get(
-          `/bank_transaction_explanations/${explanation_id}/attachments`,
-          undefined,
-          VERSION
-        );
+        const data = await client.get(`/bank_transaction_explanations/${explanation_id}/attachments`);
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -213,25 +209,21 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     {
       explanation_id: safeId.describe("The ID of the explanation"),
       attachment_paths: z
-        .array(z.string())
+        .array(z.string().min(1).max(1024))
         .min(1)
         .max(MAX_FILES_PER_REQUEST)
-        .describe("Paths to local files to attach (PDF, PNG, JPEG or GIF, max 5MB each)"),
+        .describe(`Paths to local files to attach (PDF, PNG, JPEG or GIF, max ${mb(MAX_ATTACHMENT_BYTES)} each)`),
       description: z.string().optional().describe("Description applied to each attached file"),
     },
     async ({ explanation_id, attachment_paths, description }) => {
       logToolCall("freeagent_add_bank_transaction_explanation_attachments", { explanation_id, attachment_paths });
       try {
-        // Read every file before sending any, so one bad path attaches nothing.
-        const attachments = [];
-        for (const p of attachment_paths) {
-          attachments.push(definedOnly({ ...(await readAttachment(p)), description }));
-        }
-        const data = await client.postJson(
-          `/bank_transaction_explanations/${explanation_id}/attachments`,
-          { attachments },
-          VERSION
+        const attachments = (await readAttachments(attachment_paths)).map((a) =>
+          definedOnly({ ...a, description })
         );
+        const data = await client.postJson(`/bank_transaction_explanations/${explanation_id}/attachments`, {
+          attachments,
+        });
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);
@@ -249,11 +241,10 @@ export function registerExplanationTools(server: McpServer, client: FreeAgentCli
     async ({ explanation_id, attachment_id }) => {
       logToolCall("freeagent_remove_bank_transaction_explanation_attachment", { explanation_id, attachment_id });
       try {
-        const data = await client.putJson(
-          `/bank_transaction_explanations/${explanation_id}/attachments`,
-          { attachments: [{ url: client.resourceUrl(`/attachments/${attachment_id}`), _destroy: "true" }] },
-          VERSION
-        );
+        const url = client.resourceUrl(`/attachments/${attachment_id}`);
+        const data = await client.putJson(`/bank_transaction_explanations/${explanation_id}/attachments`, {
+          attachments: [{ url, _destroy: "true" }],
+        });
         return jsonResponse(data);
       } catch (error) {
         return errorResponse(error);

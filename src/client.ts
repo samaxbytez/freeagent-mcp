@@ -92,12 +92,7 @@ export function parsePagination(
   return pagination;
 }
 
-export interface RequestOptions {
-  /** Opt in to a dated FreeAgent API version (sent as X-Api-Version), e.g. "2026-09-01". */
-  apiVersion?: string;
-}
-
-interface SendOptions extends RequestOptions {
+interface SendOptions {
   body?: unknown;
   params?: Record<string, string>;
 }
@@ -107,6 +102,7 @@ const API_VERSION = /^\d{4}-\d{2}-\d{2}$/;
 export class FreeAgentClient {
   private getAccessToken: () => Promise<string>;
   private base: URL;
+  private apiVersion?: string;
 
   constructor(
     tokenOrProvider: string | (() => Promise<string>),
@@ -120,37 +116,45 @@ export class FreeAgentClient {
     this.base = new URL(base.endsWith("/") ? base : base + "/");
   }
 
+  /**
+   * A client that opts every request in to a dated FreeAgent API version (sent as
+   * X-Api-Version), sharing this one's token and base URL.
+   */
+  withApiVersion(version: string): FreeAgentClient {
+    if (!API_VERSION.test(version)) throw new Error(`Invalid API version: ${version}`);
+    const versioned = new FreeAgentClient(this.getAccessToken, this.base.toString());
+    versioned.apiVersion = version;
+    return versioned;
+  }
+
   async get<T = unknown>(
     path: string,
-    params?: Record<string, string>,
-    options?: RequestOptions
+    params?: Record<string, string>
   ): Promise<T> {
-    return (await this.send<T>("GET", path, { ...options, params })).body;
+    return (await this.send<T>("GET", path, { params })).body;
   }
 
   async getList<T = unknown>(
     path: string,
-    params?: Record<string, string>,
-    options?: RequestOptions
+    params?: Record<string, string>
   ): Promise<{ data: T; pagination: Pagination }> {
-    const { body, headers } = await this.send<T>("GET", path, { ...options, params });
+    const { body, headers } = await this.send<T>("GET", path, { params });
     return { data: body, pagination: parsePagination(headers, params) };
   }
 
-  async postJson<T = unknown>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
-    return (await this.send<T>("POST", path, { ...options, body })).body;
+  async postJson<T = unknown>(path: string, body: unknown): Promise<T> {
+    return (await this.send<T>("POST", path, { body })).body;
   }
 
-  async putJson<T = unknown>(path: string, body: unknown, options?: RequestOptions): Promise<T> {
-    return (await this.send<T>("PUT", path, { ...options, body })).body;
+  async putJson<T = unknown>(path: string, body: unknown): Promise<T> {
+    return (await this.send<T>("PUT", path, { body })).body;
   }
 
   async deleteReq<T = unknown>(
     path: string,
-    params?: Record<string, string>,
-    options?: RequestOptions
+    params?: Record<string, string>
   ): Promise<T> {
-    return (await this.send<T>("DELETE", path, { ...options, params })).body;
+    return (await this.send<T>("DELETE", path, { params })).body;
   }
 
   /**
@@ -185,7 +189,7 @@ export class FreeAgentClient {
   private async send<T = unknown>(
     method: string,
     path: string,
-    { body, params, apiVersion }: SendOptions = {}
+    { body, params }: SendOptions = {}
   ): Promise<{ body: T; headers: Headers | undefined }> {
     const url = this.resolve(path);
 
@@ -203,10 +207,7 @@ export class FreeAgentClient {
     };
 
     if (body) headers["Content-Type"] = "application/json";
-    if (apiVersion !== undefined) {
-      if (!API_VERSION.test(apiVersion)) throw new Error(`Invalid API version: ${apiVersion}`);
-      headers["X-Api-Version"] = apiVersion;
-    }
+    if (this.apiVersion) headers["X-Api-Version"] = this.apiVersion;
 
     const response = await fetch(url.toString(), {
       method,

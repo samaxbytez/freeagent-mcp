@@ -88,14 +88,38 @@ export function isInside(parent: string, child: string): boolean {
  *         root, of an unsupported type, not a regular file, empty, or too large.
  */
 export async function readAttachment(inputPath: string): Promise<Attachment> {
-  if (!inputPath || inputPath.trim() === "") {
-    throw new Error("attachment_path must not be empty");
-  }
+  return readFromRoot(inputPath, await resolveAttachmentsRoot(UNSET_FOR_READS));
+}
 
-  const { confineTo, root } = await resolveAttachmentsRoot(
-    "attachment_path requires FREEAGENT_ATTACHMENTS_DIR to be set to the directory " +
-      "receipts live in. Attachments are not read from arbitrary paths."
-  );
+/**
+ * Read several attachments, resolving the root once. Every file is read and checked
+ * before any is returned, so one refused path means nothing is uploaded; the error
+ * names which path it was.
+ */
+export async function readAttachments(inputPaths: string[]): Promise<Attachment[]> {
+  const root = await resolveAttachmentsRoot(UNSET_FOR_READS);
+  const attachments: Attachment[] = [];
+  for (const [i, inputPath] of inputPaths.entries()) {
+    try {
+      attachments.push(await readFromRoot(inputPath, root));
+    } catch (err) {
+      throw new Error(`attachment_paths[${i}]: ${(err as Error).message}`);
+    }
+  }
+  return attachments;
+}
+
+const UNSET_FOR_READS =
+  "Attaching files requires FREEAGENT_ATTACHMENTS_DIR to be set to the directory " +
+  "receipts live in. Attachments are not read from arbitrary paths.";
+
+async function readFromRoot(
+  inputPath: string,
+  { confineTo, root }: { confineTo: string; root: string }
+): Promise<Attachment> {
+  if (!inputPath || inputPath.trim() === "") {
+    throw new Error("Attachment path must not be empty");
+  }
 
   // Lexical checks BEFORE touching the input path on disk. If realpath ran first, its
   // "not found" would reveal whether any file on the machine exists ("outside" vs "not

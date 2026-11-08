@@ -7,7 +7,6 @@ import { registerExplanationTools } from "./explanations.js";
 
 silenceToolLogs();
 
-const VERSION = { apiVersion: "2026-09-01" };
 const TXN = "https://api.freeagent.com/v2/bank_transactions/9";
 const ACCOUNT = "https://api.freeagent.com/v2/bank_accounts/1";
 
@@ -21,17 +20,18 @@ function setup() {
 }
 
 describe("registerExplanationTools", () => {
-  it("registers 8 tools", () => {
-    expect(setup().tools.size).toBe(8);
+  it("registers 8 tools on a client pinned to API version 2026-09-01", () => {
+    const { tools, client } = setup();
+    expect(tools.size).toBe(8);
+    expect(client.withApiVersion).toHaveBeenCalledWith("2026-09-01");
   });
 
-  it("lists explanations for a bank account with the opted-in API version", async () => {
+  it("lists explanations for a bank account", async () => {
     const { client, call } = setup();
     await call("list_bank_transaction_explanations", { bank_account: ACCOUNT, from_date: "2026-10-01" });
     expect(client.getList).toHaveBeenCalledWith(
       "/bank_transaction_explanations",
-      { bank_account: ACCOUNT, from_date: "2026-10-01" },
-      VERSION
+      { bank_account: ACCOUNT, from_date: "2026-10-01" }
     );
   });
 
@@ -53,8 +53,7 @@ describe("registerExplanationTools", () => {
           gross_value: "-120.00",
           paid_bill: "https://api.freeagent.com/v2/bills/5",
         },
-      },
-      VERSION
+      }
     );
   });
 
@@ -77,15 +76,14 @@ describe("registerExplanationTools", () => {
     });
     expect(client.putJson).toHaveBeenCalledWith(
       "/bank_transaction_explanations/42",
-      { bank_transaction_explanation: { sales_tax_status: "OUT_OF_SCOPE", marked_for_review: false } },
-      VERSION
+      { bank_transaction_explanation: { sales_tax_status: "OUT_OF_SCOPE", marked_for_review: false } }
     );
   });
 
   it("deletes an explanation", async () => {
     const { client, call } = setup();
     await call("delete_bank_transaction_explanation", { explanation_id: "42" });
-    expect(client.deleteReq).toHaveBeenCalledWith("/bank_transaction_explanations/42", undefined, VERSION);
+    expect(client.deleteReq).toHaveBeenCalledWith("/bank_transaction_explanations/42");
   });
 
   it("removes one attachment by its API URL", async () => {
@@ -93,8 +91,7 @@ describe("registerExplanationTools", () => {
     await call("remove_bank_transaction_explanation_attachment", { explanation_id: "42", attachment_id: "3" });
     expect(client.putJson).toHaveBeenCalledWith(
       "/bank_transaction_explanations/42/attachments",
-      { attachments: [{ url: "https://api.freeagent.com/v2/attachments/3", _destroy: "true" }] },
-      VERSION
+      { attachments: [{ url: "https://api.freeagent.com/v2/attachments/3", _destroy: "true" }] }
     );
   });
 
@@ -104,7 +101,7 @@ describe("registerExplanationTools", () => {
       attachments: [{ url: "https://api.freeagent.com/v2/attachments/3", content_src: "https://s3.example/x?sig=1" }],
     });
     const res = await call("list_bank_transaction_explanation_attachments", { explanation_id: "42" });
-    expect(client.get).toHaveBeenCalledWith("/bank_transaction_explanations/42/attachments", undefined, VERSION);
+    expect(client.get).toHaveBeenCalledWith("/bank_transaction_explanations/42/attachments");
     expect(res.content[0].text).not.toContain("sig=1");
   });
 });
@@ -132,9 +129,8 @@ describe("freeagent_add_bank_transaction_explanation_attachments", () => {
       description: "Receipt",
     });
     expect(client.postJson).toHaveBeenCalledTimes(1);
-    const [url, body, options] = (client.postJson as any).mock.calls[0];
+    const [url, body] = (client.postJson as any).mock.calls[0];
     expect(url).toBe("/bank_transaction_explanations/42/attachments");
-    expect(options).toEqual(VERSION);
     expect(body.attachments).toEqual([
       {
         data: Buffer.from("%PDF-1.4 a").toString("base64"),
@@ -151,13 +147,14 @@ describe("freeagent_add_bank_transaction_explanation_attachments", () => {
     ]);
   });
 
-  it("attaches nothing when any file is refused", async () => {
+  it("attaches nothing when any file is refused, and says which", async () => {
     const { client, call } = setup();
     const res = await call("add_bank_transaction_explanation_attachments", {
       explanation_id: "42",
       attachment_paths: [path.join(dir, "a.pdf"), "/etc/passwd"],
     });
     expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/attachment_paths\[1\]: /);
     expect(client.postJson).not.toHaveBeenCalled();
   });
 

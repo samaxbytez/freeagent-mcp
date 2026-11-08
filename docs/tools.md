@@ -13,8 +13,8 @@ List tools accept `page` and `per_page` (default 25, max 100). Responses include
 
 Every tool carries MCP annotations (`readOnlyHint`, `destructiveHint`,
 `openWorldHint`) so clients can ask for confirmation before writes and deletes.
-`list_*` and `get_*` tools are read-only; `update_*`, `delete_*`, cancelling an
-invoice and removing an explanation attachment are marked destructive; sending an invoice email is marked open-world.
+`list_*` and `get_*` tools are read-only; `update_*`, `delete_*`, `remove_*` and
+cancelling an invoice are marked destructive; sending an invoice email is marked open-world.
 Five tools, and the `email` field of `freeagent_update_contact`, are off by
 default: see [security.md](security.md#sensitive-tools).
 

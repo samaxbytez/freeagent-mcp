@@ -186,21 +186,19 @@ describe("FreeAgentClient - token provider", () => {
 });
 
 describe("FreeAgentClient - API version", () => {
-  it("sends X-Api-Version only when asked", async () => {
+  it("sends X-Api-Version only from a versioned client", async () => {
     mockFetch.mockResolvedValue(mockOk({}));
     const client = new FreeAgentClient("t");
+    await client.withApiVersion("2026-09-01").postJson("/x", { a: 1 });
     await client.get("/x");
-    await client.postJson("/x", { a: 1 }, { apiVersion: "2026-09-01" });
-    expect(mockFetch.mock.calls[0][1].headers["X-Api-Version"]).toBeUndefined();
-    expect(mockFetch.mock.calls[1][1].headers["X-Api-Version"]).toBe("2026-09-01");
+    const [url, opts] = mockFetch.mock.calls[0];
+    expect(url).toBe("https://api.freeagent.com/v2/x");
+    expect(opts.headers).toMatchObject({ Authorization: "Bearer t", "X-Api-Version": "2026-09-01" });
+    expect(mockFetch.mock.calls[1][1].headers["X-Api-Version"]).toBeUndefined();
   });
 
-  it("rejects a malformed version before sending", async () => {
-    const client = new FreeAgentClient("t");
-    await expect(client.get("/x", undefined, { apiVersion: "2026-09-01\r\nX: y" })).rejects.toThrow(
-      /Invalid API version/
-    );
-    expect(mockFetch).not.toHaveBeenCalled();
+  it("rejects a malformed version", () => {
+    expect(() => new FreeAgentClient("t").withApiVersion("2026-09-01\r\nX: y")).toThrow(/Invalid API version/);
   });
 });
 
